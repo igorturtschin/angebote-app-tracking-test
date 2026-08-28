@@ -1,11 +1,18 @@
-*.iml
+# Build output
+build/
 .gradle/
-/local.properties
-/.idea/
-.DS_Store
-/build
-/app/build
-/captures
-.externalNativeBuild
-.cxx
+.kotlin/
+.cxx/
+captures/
+.externalNativeBuild/
+
+# Local machine settings, different on every computer
 local.properties
+
+# Android Studio / IntelliJ project files
+.idea/
+*.iml
+
+# OS clutter
+.DS_Store
+Thumbs.db
