@@ -8,12 +8,12 @@ import android.os.Environment
 import android.provider.MediaStore
 
 /**
- * Erzeugt einen einseitigen Gutschein als PDF und legt ihn im Ordner "Downloads" ab.
- * Rückgabe: der Dateiname, oder null wenn das Speichern fehlgeschlagen ist.
+ * Builds a one-page coupon as a PDF and saves it to the public Downloads folder.
+ * Returns the file name, or null if saving failed.
  */
-fun downloadGutscheinPdf(context: Context, offer: Offer): String? {
+fun downloadCouponPdf(context: Context, offer: Offer): String? {
     val document = PdfDocument()
-    val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create() // A4 in Punkt
+    val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create() // A4 in points
     val page = document.startPage(pageInfo)
     val canvas = page.canvas
     val paint = Paint().apply { isAntiAlias = true }

@@ -1,6 +1,6 @@
 package de.angebote.trackingtest
 
-/** Ein Angebot. Alle Daten sind fest im Code hinterlegt, es gibt keinen Server. */
+/** One offer. All data is hard-coded in the app, there is no server. */
 data class Offer(
     val id: String,
     val shop: String,

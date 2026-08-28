@@ -40,9 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Blau = noch nicht angetippt, Grau = bereits angetippt. */
-private val BLAU = Color(0xFF1A56DB)
-private val GRAU = Color(0xFF9E9E9E)
+/** Blue = not tapped yet, grey = already tapped. */
+private val BLUE = Color(0xFF1A56DB)
+private val GREY = Color(0xFF9E9E9E)
 
 private const val SHOP_URL = "https://www.google.de"
 
@@ -61,17 +61,17 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun App() {
-    var offeneOffer by remember { mutableStateOf<Offer?>(null) }
+    var openOffer by remember { mutableStateOf<Offer?>(null) }
 
-    val current = offeneOffer
+    val current = openOffer
     if (current == null) {
-        StartScreen(onOfferClick = { offeneOffer = it })
+        StartScreen(onOfferClick = { openOffer = it })
     } else {
         OfferScreen(
             offer = current,
-            onBack = { offeneOffer = null },
+            onBack = { openOffer = null },
         )
-        BackHandler { offeneOffer = null }
+        BackHandler { openOffer = null }
     }
 }
 
@@ -96,13 +96,13 @@ private fun StartScreen(onOfferClick: (Offer) -> Unit) {
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(text = offer.shop, fontSize = 13.sp, color = GRAU)
+                    Text(text = offer.shop, fontSize = 13.sp, color = GREY)
                     Text(text = offer.title, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
                     Text(text = offer.teaser, fontSize = 14.sp)
                     Spacer(Modifier.height(4.dp))
-                    FarbButton(
+                    ColorButton(
                         text = "Zum Angebot",
-                        benutzt = false,
+                        used = false,
                         onClick = { onOfferClick(offer) },
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -116,12 +116,12 @@ private fun StartScreen(onOfferClick: (Offer) -> Unit) {
 private fun OfferScreen(offer: Offer, onBack: () -> Unit) {
     val context = LocalContext.current
 
-    // Zustand der Schaltflaechen. remember(offer.id) => beim erneuten Oeffnen zurueckgesetzt.
-    val benutzt = remember(offer.id) { mutableStateListOf<String>() }
-    var codeSichtbar by remember(offer.id) { mutableStateOf(false) }
+    // Button state. remember(offer.id) makes it reset when the screen is opened again.
+    val used = remember(offer.id) { mutableStateListOf<String>() }
+    var codeVisible by remember(offer.id) { mutableStateOf(false) }
 
-    fun markiere(name: String) {
-        if (name !in benutzt) benutzt.add(name)
+    fun markUsed(name: String) {
+        if (name !in used) used.add(name)
     }
 
     Column(
@@ -135,49 +135,49 @@ private fun OfferScreen(offer: Offer, onBack: () -> Unit) {
             Text("Zur Startseite")
         }
 
-        Text(text = offer.shop, fontSize = 13.sp, color = GRAU)
+        Text(text = offer.shop, fontSize = 13.sp, color = GREY)
         Text(text = offer.title, fontSize = 22.sp, fontWeight = FontWeight.Bold)
 
-        offer.details.forEach { absatz ->
-            Text(text = absatz, fontSize = 14.sp)
+        offer.details.forEach { paragraph ->
+            Text(text = paragraph, fontSize = 14.sp)
         }
 
         Spacer(Modifier.height(8.dp))
 
-        FarbButton(
+        ColorButton(
             text = "Gutschein generieren",
-            benutzt = "generieren" in benutzt,
+            used = "generieren" in used,
             onClick = {
-                markiere("generieren")
-                codeSichtbar = true
+                markUsed("generieren")
+                codeVisible = true
             },
             modifier = Modifier.fillMaxWidth(),
         )
 
-        if (codeSichtbar) {
+        if (codeVisible) {
             Text(
                 text = offer.code,
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
             )
-            FarbButton(
+            ColorButton(
                 text = "Kopieren",
-                benutzt = "kopieren" in benutzt,
+                used = "kopieren" in used,
                 onClick = {
-                    markiere("kopieren")
-                    kopiereInZwischenablage(context, offer.code)
+                    markUsed("kopieren")
+                    copyToClipboard(context, offer.code)
                     Toast.makeText(context, "Code kopiert", Toast.LENGTH_SHORT).show()
                 },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
 
-        FarbButton(
+        ColorButton(
             text = "Zum Shop",
-            benutzt = "shop" in benutzt,
+            used = "shop" in used,
             onClick = {
-                markiere("shop")
-                oeffneShop(context)
+                markUsed("shop")
+                openShop(context)
             },
             modifier = Modifier.fillMaxWidth(),
         )
@@ -189,18 +189,18 @@ private fun OfferScreen(offer: Offer, onBack: () -> Unit) {
             fontSize = 14.sp,
         )
 
-        FarbButton(
+        ColorButton(
             text = "Download",
-            benutzt = "download" in benutzt,
+            used = "download" in used,
             onClick = {
-                markiere("download")
-                val name = downloadGutscheinPdf(context, offer)
-                val meldung = if (name != null) {
+                markUsed("download")
+                val name = downloadCouponPdf(context, offer)
+                val message = if (name != null) {
                     "Gespeichert unter Downloads/" + name
                 } else {
                     "Download fehlgeschlagen"
                 }
-                Toast.makeText(context, meldung, Toast.LENGTH_LONG).show()
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
             },
             modifier = Modifier.fillMaxWidth(),
         )
@@ -210,9 +210,9 @@ private fun OfferScreen(offer: Offer, onBack: () -> Unit) {
 }
 
 @Composable
-private fun FarbButton(
+private fun ColorButton(
     text: String,
-    benutzt: Boolean,
+    used: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -220,7 +220,7 @@ private fun FarbButton(
         onClick = onClick,
         modifier = modifier,
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (benutzt) GRAU else BLAU,
+            containerColor = if (used) GREY else BLUE,
             contentColor = Color.White,
         ),
     ) {
@@ -228,12 +228,12 @@ private fun FarbButton(
     }
 }
 
-private fun kopiereInZwischenablage(context: Context, code: String) {
+private fun copyToClipboard(context: Context, code: String) {
     val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     manager.setPrimaryClip(ClipData.newPlainText("Gutscheincode", code))
 }
 
-private fun oeffneShop(context: Context) {
+private fun openShop(context: Context) {
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(SHOP_URL))
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     try {
