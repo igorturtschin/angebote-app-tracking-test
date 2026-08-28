@@ -30,6 +30,11 @@ at the end, up to 72 characters.
 After a blank line comes the body: what and why, not how. Also in
 English B2.
 
+Before `git push`, check the commit author: run `git log -1 --format=%ae`.
+If it is not `293591015+igorturtschin@users.noreply.github.com`, GitHub
+rejects the push to protect a private email. Fix it with
+`git commit --amend --reset-author`, then push.
+
 ## Build
 
 ```
