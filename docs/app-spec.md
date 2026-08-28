@@ -1,73 +1,106 @@
-# Тестовое приложение: что в нём должно быть
+# Angebote — test app specification
 
-Android, native (Kotlin). Цель — полигон для проверки трекинга, не продукт. В Google Play не выкладывается, но собирается в устанавливаемый APK.
+An Android app used as a test ground for mobile tracking. It is not a
+product. It will not be published on Google Play, but it is built as a
+normal, installable app.
 
-Интерфейс на немецком.
+The user interface is in German, because the project is shown to a
+German-speaking audience. All documentation is in English.
 
----
+## Screens
 
-## Экраны
+The app has two screens. Nothing more is needed at this stage.
 
-Два экрана. Больше на старте не нужно.
+### 1. Start screen
 
-### 1. Стартовая
+Four offers are built into the app. There is no server. Each offer is one
+block with a shop name, a title, a short text and a button
+**"Zum Angebot"** that opens the offer screen.
 
-Четыре предложения, зашитые в приложение. Каждое — блок:
+The order is fixed. There is no sorting and no filtering.
 
-- заголовок предложения
-- текст описания
-- кнопка **«Zum Angebot»** → открывает карточку предложения
-
-Порядок фиксированный, сортировки и фильтров нет.
-
-**Содержание четырёх предложений** (выдуманное, магазины несуществующие):
-
-| # | Заголовок | Текст на стартовой |
+| # | Shop | Title |
 |---|---|---|
-| 1 | `20 % auf alle Sportschuhe` | `Bei Fitwerk sparen Sie 20 % auf das gesamte Schuhsortiment. Gültig auf reduzierte Ware.` |
-| 2 | `15 € Rabatt ab 75 € Bestellwert` | `Nordlicht Wohnen gewährt 15 € Nachlass auf Möbel und Wohnaccessoires ab einem Bestellwert von 75 €.` |
-| 3 | `Versandkostenfrei bestellen` | `Kaffeekontor liefert alle Bestellungen ohne Versandkosten – ohne Mindestbestellwert.` |
-| 4 | `2 für 1 auf Brillengläser` | `Sichtbar Optik: beim Kauf einer Brille erhalten Sie das zweite Glaspaar gratis dazu.` |
+| 1 | Fitwerk | 20 % auf alle Sportschuhe |
+| 2 | Nordlicht Wohnen | 15 € Rabatt ab 75 € Bestellwert |
+| 3 | Kaffeekontor | Versandkostenfrei bestellen |
+| 4 | Sichtbar Optik | 2 für 1 auf Brillengläser |
 
-В карточке предложения текст тот же, но длиннее — два-три абзаца с условиями акции.
+The shops and the offers are invented. They do not refer to real
+companies.
 
-### 2. Карточка предложения
+### 2. Offer screen
 
-Сверху — кнопка возврата на стартовую.
+At the top there is a button back to the start screen. The system back
+button works as well.
 
-Дальше сверху вниз:
+Below it, from top to bottom:
 
-| Элемент | Поведение |
+| Element | Behaviour |
 |---|---|
-| Текст предложения | статичный |
-| Кнопка **«Gutschein generieren»** | по нажатию показывает код `654-321` и кнопку **«Kopieren»** |
-| Кнопка **«Kopieren»** | копирует код в буфер обмена |
-| Кнопка **«Zum Shop»** | кликаут — открывает `https://www.google.de` во внешнем браузере |
-| Текст **«Oder Gutschein für die Filiale herunterladen»** | статичный |
-| Кнопка **«Download»** | скачивает файл с купоном |
+| Offer text | Two or three paragraphs with the terms of the offer. Static. |
+| Button **"Gutschein generieren"** | Shows the code `654-321` and the button "Kopieren" below it. |
+| Button **"Kopieren"** | Copies the code to the clipboard. A short message confirms it. |
+| Button **"Zum Shop"** | Click-out. Opens `https://www.google.de` in the external browser. |
+| Text **"Oder Gutschein für die Filiale herunterladen"** | Static. |
+| Button **"Download"** | Creates a PDF coupon and saves it to the Downloads folder. |
 
-Все три действия — код, кликаут, скачивание — живут на одной карточке одновременно. Отдельных типов предложений нет.
+All three actions — code, click-out and download — are on the same offer
+screen at the same time. There are no different offer types.
 
-## Общее поведение
+The code `654-321` is the same for every offer.
 
-**Нажатая кнопка меняет цвет.** Обычная — синяя, уже нажатая — серая. Возвращается к синему при повторном открытии карточки.
+## General behaviour
 
-**Навигация** — только вперёд по кнопке «Zum Angebot» и назад на стартовую.
+**A button that was tapped changes colour.** Normal is blue, already
+tapped is grey. The colour goes back to blue when the offer screen is
+opened again.
 
-## Чего в MVP нет
+**Navigation** works only forward through "Zum Angebot" and back to the
+start screen.
 
-Поиск, история запросов, Merkzettel, карта, профиль, настройки, список категорий, корзина.
+## What the app does not have
 
----
+No login, no search, no search history, no Merkzettel, no map, no
+profile, no settings, no category list, no shopping cart.
 
-## Допущения — подтвердить перед сборкой
+## The coupon PDF
 
-1. **Логина нет.** В [../task.md](../task.md) сказано, что в реальном приложении вход по логину и паролю. В твоём описании MVP логина нет. Считаю, что на старте он не нужен, — если нужен, это отдельный экран.
-2. **Код одинаковый для всех предложений** — `654-321`. Если нужны разные коды по предложениям, скажи.
-3. **Скачивается файл-заглушка** — один и тот же PDF на все предложения.
-4. **«Kopieren» появляется рядом с кодом**, а не вместо кнопки «Gutschein generieren». Как проще при сборке — так и сделаю, если нет предпочтения.
-5. **«Zum Shop» открывает `https://www.google.de` напрямую во внешнем браузере.** Промежуточный экран «вы переходите туда-то» в приложении не делается — по твоему решению.
+The "Download" button builds a one-page PDF inside the app. The page
+shows the shop name, the offer title and the code in large type, with a
+line asking the user to print it and show it in the shop.
 
-## Открытый вопрос за пределами приложения
+The file is saved to the public Downloads folder as
+`gutschein-<offer-id>.pdf`, for example `gutschein-offer_01.pdf`. The user
+can open it, print it or share it like any other download.
 
-Промежуточный экран перед уходом на сайт партнёра даёт место для дополнительного замера. Вопрос, нужно ли на это согласие пользователя или оно покрыто установкой приложения, относится к трекингу, а не к спецификации приложения. Здесь только помечено, что вопрос есть.
+## Technical decisions
+
+| Item | Value |
+|---|---|
+| App name on the phone | Angebote |
+| Application ID | `de.angebote.trackingtest` |
+| Language and UI toolkit | Kotlin, Jetpack Compose |
+| Lowest supported Android | 10 (API 29) |
+| Built against | API 37 |
+| Analytics SDK | none yet |
+
+**Why Android 10 as the lowest version.** Saving a file into the public
+Downloads folder in a clean way needs API 29. Phones older than Android
+10 are rare in Europe, so this is not a real limit for a test app.
+
+**Why no analytics SDK yet.** The SDKs are added in a separate, later
+step. The point of this app is to measure how much effort each change
+costs *after* the app already exists. If the SDK went in together with
+the first build, that effort could not be seen.
+
+## State
+
+The app was built, installed and used on two devices:
+
+- emulator Pixel 10a, Android 17
+- a real Pixel 10a, Android 17
+
+Checked by hand: start screen, offer screen, code generation, the colour
+change of used buttons, the PDF download into the Downloads folder, and
+the click-out into the browser.
