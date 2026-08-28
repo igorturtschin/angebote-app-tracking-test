@@ -1,43 +1,46 @@
 # mobile-test-app
 
-Тестовое приложение для проверки трекинга. Спецификация — `docs/app-spec.md`.
+A test app for checking analytics tracking. The spec is in `docs/app-spec.md`.
 
-## Язык
+## Language
 
-Внутри этой папки **всё на английском**: код, имена переменных, комментарии,
-документация, сообщения коммитов. Уровень — B2: простые предложения, обычные
-слова, без редкой лексики.
+Inside this folder **everything is in English**: code, variable names,
+comments, documentation, commit messages. The level is B2: simple
+sentences, common words, no rare vocabulary.
 
-Единственное исключение — **тексты, которые видит пользователь на экране
-телефона: они на немецком**. Проект показывают немецкоязычной публике.
+The only exception is **text the user sees on the phone screen: that is in
+German**. The app is shown to a German-speaking audience.
 
-Остальные папки проекта — на русском. Это правило действует только здесь.
+The other folders of the project are in Russian. This rule applies here
+only.
 
-## Коммиты
+## Commits
 
-Заголовок: `тип: что сделано`, повелительное наклонение, с маленькой буквы,
-без точки в конце, до 72 знаков.
+Subject: `type: what was done`, imperative mood, lower case, no full stop
+at the end, up to 72 characters.
 
-| Тип | Когда |
+| Type | When |
 |---|---|
-| `feat` | новая возможность приложения |
-| `fix` | исправление ошибки |
-| `docs` | только документация |
-| `refactor` | код переписан, поведение то же |
-| `chore` | сборка, зависимости, перестановка файлов |
+| `feat` | a new app feature |
+| `fix` | a bug fix |
+| `docs` | documentation only |
+| `refactor` | code rewritten, same behavior |
+| `chore` | build, dependencies, moving files around |
 
-После пустой строки — тело: что и зачем, а не как. Тоже на английском B2.
+After a blank line comes the body: what and why, not how. Also in
+English B2.
 
-## Сборка
+## Build
 
 ```
 cd android
 ./gradlew assembleDebug
 ```
 
-Требуются Java и Android SDK — оба приходят вместе с Android Studio.
+Java and the Android SDK are required. Both come with Android Studio.
 
-## Чего не делать
+## What not to do
 
-Не добавлять SDK аналитики. Их ставит пользователь отдельным шагом — в этом
-смысл приложения: измерить, чего стоит добавить трекинг к готовому коду.
+Do not add analytics SDKs. The user installs them in a separate step —
+that is the point of the app: to measure what it costs to add tracking to
+code that is already done.

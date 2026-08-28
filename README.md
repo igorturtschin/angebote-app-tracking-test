@@ -40,6 +40,9 @@ The APK is written to
 [docs/app-spec.md](docs/app-spec.md) — what the app contains, screen by
 screen, and the technical decisions behind it.
 
+[CLAUDE.md](CLAUDE.md) — working rules for this folder: language, commit
+style, build, and what not to do.
+
 ## Language
 
 The user interface is in German. All code, comments and documentation are
