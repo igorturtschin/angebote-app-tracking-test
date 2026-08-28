@@ -9,9 +9,6 @@ captures/
 # Local machine settings, different on every computer
 local.properties
 
-# Firebase config: ties the repo to one Firebase project, re-downloaded from the console
-android/app/google-services.json
-
 # Android Studio / IntelliJ project files
 .idea/
 *.iml

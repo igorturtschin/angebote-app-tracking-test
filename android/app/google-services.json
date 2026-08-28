@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "762681826495",
+    "project_id": "angebote-app-tracking-test",
+    "storage_bucket": "angebote-app-tracking-test.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:762681826495:android:da1e4672ff66cbb145fa0a",
+        "android_client_info": {
+          "package_name": "de.angebote.trackingtest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDB4iOUeSecuPsjHG2FvAFBV21C4Bo3MiM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
