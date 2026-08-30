@@ -1,6 +1,8 @@
 # mobile-test-app
 
-A test app for checking analytics tracking. The spec is in `docs/app-spec.md`.
+A test app for checking analytics tracking. The tracking concept and the
+app description are in `docs/tracking-concept.md` (the app itself is
+described in its Appendix A).
 
 ## Language
 

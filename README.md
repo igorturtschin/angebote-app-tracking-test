@@ -37,8 +37,9 @@ The APK is written to
 
 ## Documentation
 
-[docs/app-spec.md](docs/app-spec.md) — what the app contains, screen by
-screen, and the technical decisions behind it.
+[docs/tracking-concept.md](docs/tracking-concept.md) — the tracking
+concept: SDK setup, events and their parameters. Appendix A describes
+the app itself, screen by screen, with the technical decisions behind it.
 
 [CLAUDE.md](CLAUDE.md) — working rules for this folder: language, commit
 style, build, and what not to do.

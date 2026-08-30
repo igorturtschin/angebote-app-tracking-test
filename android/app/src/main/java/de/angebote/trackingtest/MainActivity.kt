@@ -77,6 +77,11 @@ private fun App() {
 
 @Composable
 private fun StartScreen(onOfferClick: (Offer) -> Unit) {
+    ScreenViewEffect(
+        screenName = START_SCREEN_NAME,
+        currentOffer = START_CURRENT_OFFER,
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -114,6 +119,11 @@ private fun StartScreen(onOfferClick: (Offer) -> Unit) {
 
 @Composable
 private fun OfferScreen(offer: Offer, onBack: () -> Unit) {
+    ScreenViewEffect(
+        screenName = offer.shop,
+        currentOffer = offer.title,
+    )
+
     val context = LocalContext.current
 
     // Button state. remember(offer.id) makes it reset when the screen is opened again.
