@@ -2,8 +2,8 @@
 
 A test app for checking analytics tracking. The tracking concept and the
 app description are in `docs/tracking-concept.md` (the app itself is
-described in its Attachment 1). Implementation mechanics and notes meant
-only for the AI assistant are in `docs/attachment-ai.md`.
+described in its Attachment 1). How those events are wired into the code,
+and how to check that they go out, is in `docs/implementation-notes.md`.
 
 ## Language
 
@@ -46,9 +46,3 @@ cd android
 ```
 
 Java and the Android SDK are required. Both come with Android Studio.
-
-## What not to do
-
-Do not add analytics SDKs. The user installs them in a separate step —
-that is the point of the app: to measure what it costs to add tracking to
-code that is already done.
