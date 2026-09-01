@@ -46,3 +46,7 @@ cd android
 ```
 
 Java and the Android SDK are required. Both come with Android Studio.
+
+Java is often not in PATH. Android Studio brings its own runtime, so point
+`JAVA_HOME` at it before the build, for example
+`C:\Program Files\Android\Android Studio\jbr`.

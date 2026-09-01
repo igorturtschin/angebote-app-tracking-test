@@ -11,16 +11,12 @@ to fire the events that matter for tracking, and nothing more.
 The app is not a product. It is not published on Google Play, but it is
 built as a normal, installable app.
 
-No analytics SDK is included yet. SDKs are added in a separate, later
-step, so that the effort of adding tracking to an app that already exists
-can be measured.
+## Documentation
 
-## Layout
-
-| Folder | Content |
-|---|---|
-| `android/` | the app itself — a Gradle project, Kotlin and Jetpack Compose |
-| `docs/` | documentation |
+[docs/tracking-concept.md](docs/tracking-concept.md) — the tracking
+concept: SDK setup, the events and their parameters. Attachment 1
+describes the app itself, screen by screen, with the technical decisions
+behind it. Attachment 2 collects the open questions.
 
 ## Build
 
@@ -33,16 +29,8 @@ cd android
 ```
 
 The APK is written to
-`android/app/build/outputs/apk/debug/app-debug.apk`.
-
-## Documentation
-
-[docs/tracking-concept.md](docs/tracking-concept.md) — the tracking
-concept: SDK setup, events and their parameters. Appendix A describes
-the app itself, screen by screen, with the technical decisions behind it.
-
-[CLAUDE.md](CLAUDE.md) — working rules for this folder: language, commit
-style, build, and what not to do.
+`android/app/build/outputs/apk/debug/app-debug.apk` and installs on a
+phone or an emulator like any other debug build.
 
 ## Language
 
@@ -51,5 +39,9 @@ in English.
 
 ## Status
 
-Work in progress. The app runs on an emulator and on a real phone. The
-README and the rest of the project will grow as the work goes on.
+This branch is finished: the app works, and its Firebase / GA4 tracking is
+implemented and checked on a device, event by event.
+
+The app without any tracking is the common starting point for more than
+one branch. Amplitude on the same functionality, and a second version of
+the app with its own tracking, are planned but not started.
