@@ -16,3 +16,6 @@ local.properties
 # OS clutter
 .DS_Store
 Thumbs.db
+
+# Snapshots of the docs kept while editing, git history covers this
+docs/_versions/
