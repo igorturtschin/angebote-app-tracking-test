@@ -71,6 +71,18 @@ fun ScreenViewEffect(screenName: String, currentOffer: String, items: ScreenItem
 }
 
 /**
+ * Sent when the app comes to the foreground, see tracking-concept.md
+ * block 4. Must be the first event of that moment, before screen_view.
+ *
+ * The observer that calls this is added in MainActivity.onCreate before
+ * setContent, so it runs before the screens' own lifecycle observers.
+ * No parameters for now (Appendix B, B.1).
+ */
+fun logAppOpen() {
+    Firebase.analytics.logEvent(FirebaseAnalytics.Event.APP_OPEN) {}
+}
+
+/**
  * e-commerce events for the Highlights offer list, see tracking-concept.md
  * block 3. Chain: view_item_list -> select_item -> view_item ->
  * begin_checkout (the target action, sent on "Zum Shop" and "Download").

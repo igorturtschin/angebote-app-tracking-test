@@ -10,6 +10,8 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -49,6 +51,17 @@ private const val SHOP_URL = "https://www.google.de"
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // app_open must be the first event of every foregrounding, before the
+        // screen_view of the visible screen (concept block 4). This observer
+        // is added before setContent, so it runs before the screens' own
+        // lifecycle observers.
+        lifecycle.addObserver(
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) logAppOpen()
+            },
+        )
+
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
