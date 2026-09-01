@@ -2,7 +2,8 @@
 
 A test app for checking analytics tracking. The tracking concept and the
 app description are in `docs/tracking-concept.md` (the app itself is
-described in its Appendix A).
+described in its Attachment 1). Implementation mechanics and notes meant
+only for the AI assistant are in `docs/attachment-ai.md`.
 
 ## Language
 

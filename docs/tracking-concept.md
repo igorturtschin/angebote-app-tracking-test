@@ -1,30 +1,37 @@
-# Angebote — tracking concept
+---
+title: Angebote — Tracking Concept
+---
 
-Tracking concept for the **Angebote** Android test app
-(application ID `de.angebote.trackingtest`).
+# Overview
 
-This document is the single source of truth for tracking: the SDK setup,
-the events, their parameters and the screen list. A developer can build
-the whole tracking from this document alone. The app itself — screens,
-buttons, and where each value comes from — is described in
-[Appendix A: the app](#appendix-a--the-app).
+Tracking concept for the **Angebote** Android test app (application ID
+`de.angebote.trackingtest`). Analytics SDK: **Firebase / Google Analytics
+for Firebase**.
 
-Analytics SDK: **Firebase / Google Analytics for Firebase**.
+Single source of truth for tracking. Every value the tracking uses is
+defined once in [Attachment 1](#attachment-1--app-description); the
+sections point to it and do not copy it. This is a little less convenient
+to read, but a value can never drift out of sync with a copy.
 
-The document grows block by block. Block 1 is the SDK, block 2 is
-`screen_view`. Interaction events (coupon code, click-out, PDF download)
-come in later blocks.
+Open questions and things not built yet are in
+[Attachment 2](#attachment-2--open-questions-and-ideas).
+
+Each event section has four parts — **Why**, **Code**, **Values**,
+**Trigger** — and a **Status** line (*done* / *in progress* / *not done*)
+under the heading. The trigger is written as a moment in the app, not as a
+method name; the developer picks the technical hook. The text stays in the
+imperative even where the status is *done* — the concept is not rewritten
+after the code exists.
 
 ---
 
-## 1. Analytics SDK setup
+# 1. Analytics SDK setup
+
+Status: **done.**
 
 Source: [Firebase — Get started with Google Analytics on Android](https://firebase.google.com/docs/analytics/android/get-started).
 
-Status: **done.** The steps below are written down so the setup can be
-repeated or reviewed.
-
-### 1.1 Firebase project and app registration
+## Firebase project and app registration
 
 1. Create the Firebase project (here: `angebote-app-tracking-test`).
 2. Keep **Enable Google Analytics** switched on in the wizard. It creates
@@ -40,7 +47,7 @@ The file `google-services.json` is not a secret: the same file is shipped
 inside the APK. It is kept in the repository so the project builds out of
 the box.
 
-### 1.2 Gradle
+## Gradle
 
 `android/gradle/libs.versions.toml`:
 
@@ -73,25 +80,20 @@ plugins {
 }
 
 dependencies {
-    // The BoM sets one version for all Firebase libraries.
+    // The BoM keeps all Firebase libraries at compatible versions.
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
 }
 ```
 
-The BoM (Bill of Materials) fixes one matching version set for all
-Firebase libraries, so `firebase-analytics` carries no version of its own.
+Then **Sync Project with Gradle Files** in Android Studio.
 
-After the change: **Sync Project with Gradle Files** in Android Studio.
-The first sync downloads Gradle, AGP and the Firebase dependencies and
-takes 5–20 minutes; later syncs take seconds.
-
-### 1.3 Initialise Analytics in code
+## Initialise Analytics in code
 
 The SDK starts itself through a manifest entry that comes with the
 library, so automatic events (`first_open`, `session_start`,
 `user_engagement`, …) are collected without any Kotlin code. To send our
-own events, the singleton is used:
+own events, use the singleton:
 
 ```kotlin
 import com.google.firebase.Firebase
@@ -108,7 +110,9 @@ are composables, not Activities, so the events are sent from
 `Analytics.kt` and `Firebase.analytics` is read there. It returns the same
 single instance.
 
-### 1.4 Check that events arrive
+## DA — check that events arrive
+
+This part is for the digital analyst (DA), not for the developer.
 
 DebugView shows events from one device in near real time, without the
 normal batching delay. Standard reports in Firebase and GA4 are delayed
@@ -132,31 +136,64 @@ adb shell setprop debug.firebase.analytics.app .none.
 An emulator needs a **system image with Google Play**. Without Google
 Play services the SDK cannot send events.
 
-[AI INFO]
-`adb` is not in PATH on the user's machine; it is in
-`%LOCALAPPDATA%\Android\Sdk\platform-tools\`. Two devices are usually
-connected (emulator and a phone over Wi-Fi), so the real commands need
-`-s emulator-5554`. The full PowerShell versions are in
-`infos/firebase-sdk-setup-log.md`. Kept out of the main text because this
-document is written for any developer, not for one machine.
-[/AI INFO]
+---
+
+# 2. app_open event
+
+Status: **done.**
+
+## Why
+
+`app_open` is a recommended Firebase event. Firebase does not collect it
+automatically, so the app sends it. It is the **first event** every time
+the app comes to the foreground, before the `screen_view` of the screen
+that becomes visible — it marks the start of a visit.
+
+## Code
+
+```kotlin
+Firebase.analytics.logEvent(FirebaseAnalytics.Event.APP_OPEN) { }
+```
+
+## Values
+
+None for now. Parameters worth testing later are in
+[Attachment 2](#attachment-2--open-questions-and-ideas).
+
+## Trigger
+
+Send `app_open` when the whole app comes to the foreground:
+
+- the first launch,
+- every return from the background,
+- every return from the browser click-out or the PDF download.
+
+Do **not** send it on things that are not a real foregrounding — a screen
+rotation, a system dialog on top of the app, or moving between screens
+inside the app. It must come out **before** the first `screen_view` of
+that moment.
 
 ---
 
-## 2. Screen tracking — `screen_view`
+# 3. Screen tracking — `screen_view`
 
-### 2.1 Automatic screen tracking is switched off
+Status: **done.**
+
+## Why
+
+We want to know which screens are opened more often and which less. That
+feeds screen-performance and conversion work. Screen tracking is what
+measures it.
+
+## Turn automatic screen tracking off
 
 Firebase sends its own `screen_view` from the Activity lifecycle. This app
 draws all 5 screens inside one Activity, so the automatic event would
-always report the same screen and would fire next to our own event —
-duplicate and useless data.
+always report the same screen and fire next to our own — duplicate,
+useless data.
 
-Therefore: **automatic screen reporting is off, every screen sends its own
-`screen_view` manually.** This is also what Google recommends when the app
-controls the screen names itself.
-
-Add inside `<application>` in `android/app/src/main/AndroidManifest.xml`:
+Switch it off in `android/app/src/main/AndroidManifest.xml`, inside
+`<application>`:
 
 ```xml
 <meta-data
@@ -164,248 +201,472 @@ Add inside `<application>` in `android/app/src/main/AndroidManifest.xml`:
     android:value="false" />
 ```
 
-**What this switches off:** only the automatic sending of `screen_view`.
-All other automatic events and all manual events keep working.
+This turns off only the automatic `screen_view`. All other automatic
+events and all manual events keep working.
 
-### 2.2 Screen list
-
-The app has **5 screens** of **2 types**:
-
-| Type | Count | Description |
-|---|---|---|
-| Start screen | 1 | Shows all four offers as blocks. |
-| Offer screen | 4 | One screen per offer. Opened with the button **"Zum Angebot"**. |
-
-All screens live inside one Activity (`MainActivity`) and are built with
-Jetpack Compose. There are no Fragments and no Navigation component: a
-"screen" is a Compose state, not a separate Android component.
-
-#### Screen table
-
-| Screen | Type | `screen_name` | `screen_class` | `current_offer` | App offer id |
-|---|---|---|---|---|---|
-| Start | Start screen | `Startseite` | *(see 2.3)* | `Neustarter & Highlights` | — |
-| Fitwerk | Offer screen | `Fitwerk` | *(see 2.3)* | `20 % auf alle Sportschuhe` | `offer_01` |
-| Nordlicht Wohnen | Offer screen | `Nordlicht Wohnen` | *(see 2.3)* | `15 € Rabatt ab 75 € Bestellwert` | `offer_02` |
-| Kaffeekontor | Offer screen | `Kaffeekontor` | *(see 2.3)* | `Versandkostenfrei bestellen` | `offer_03` |
-| Sichtbar Optik | Offer screen | `Sichtbar Optik` | *(see 2.3)* | `2 für 1 auf Brillengläser` | `offer_04` |
-
-The **app offer id** (`offer_01` …) is the id of the offer in the app code
-(`Offer.id` in `Offers.kt`). It is used whenever an offer has to be
-identified in a later event.
-
-### 2.3 The event
-
-| Parameter | Constant | Example |
-|---|---|---|
-| Screen name | `FirebaseAnalytics.Param.SCREEN_NAME` | `Fitwerk` |
-| Screen class | `FirebaseAnalytics.Param.SCREEN_CLASS` | *optional, see below* |
-| Current offer | `current_offer` (custom) | `20 % auf alle Sportschuhe` |
+## Code
 
 ```kotlin
 firebaseAnalytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW) {
     param(FirebaseAnalytics.Param.SCREEN_NAME, screenName)
-    // param(FirebaseAnalytics.Param.SCREEN_CLASS, "...")
     param("current_offer", currentOffer)
 }
 ```
 
-`SCREEN_CLASS` is commented out on purpose. The developer either fills it
-with a correct value or does not send it at all. What arrives in this
-parameter says more about the technical quality of the app than about user
-behaviour, so it is not needed for the analysis.
+`SCREEN_CLASS` is not sent. Its value would describe the technical build
+of the screen, not user behaviour, and with all screens in one Activity it
+would say almost nothing. A developer may add it; the analysis does not
+need it.
 
-### 2.4 When it is sent: `onResume`
+## Values
 
-**The `screen_view` event is sent from the `onResume` moment of the
-screen** — not from `onCreate` or the first composition.
+| Parameter | Constant | Where the value comes from |
+|---|---|---|
+| Screen name | `Param.SCREEN_NAME` | Attachment 1 → *Tracking values*, column `screen_name` |
+| Current offer | `current_offer` (custom) | Attachment 1 → *Tracking values*, column `current_offer` |
 
-- `onResume` is the moment the screen is fully in front and ready for
-  input. It is the closest technical signal to "the user is looking at
-  this screen now".
-- It fires **again** on every return to the screen: back from an offer
-  screen to the start screen, and back into the app after the click-out to
-  the browser or after the PDF download. `onCreate` and the first
-  composition fire only once and would miss these returns, so screen
-  counts would be too low.
-- It is the same lifecycle moment that Firebase's own automatic screen
-  tracking uses, so the numbers stay comparable.
+## Trigger
 
-Trade-off: a very short return also produces a `screen_view`. That is
-expected and is the normal Android behaviour.
+Send `screen_view` every time a screen becomes visible to the user:
 
-### 2.5 Implementation
+- when the app opens the start screen or an offer screen,
+- on every **return** to a screen — back from an offer to the start
+  screen, and back into the app from the browser, from the PDF download,
+  or from another app.
 
-The screens are Compose state inside one Activity, so there is no
-per-screen `onResume` method to override. A lifecycle observer gives the
-same moment. The helper lives in
-`android/app/src/main/java/de/angebote/trackingtest/Analytics.kt`:
+A short return counts too. Some of these returns are not really a new view
+(back from the browser or the download, or an app switch); marking them so
+they can be excluded from mass metrics is an open point — see
+[Attachment 2](#attachment-2--open-questions-and-ideas).
+
+---
+
+# 4. E-commerce events
+
+Status: **done.**
+
+## Why
+
+Lists of offers are measured in Google Analytics as e-commerce events.
+The whole way through such a list is one chain: the list is shown, one
+offer is picked out of it, the offer screen opens, and the user does the
+target action there. For the chain to be readable, the same values have
+to travel through all of its steps.
+
+`view_item_list` → `select_item` → `view_item` → `begin_checkout`
+
+`begin_checkout` is the **target action**. It is sent when the user taps
+**"Zum Shop"** or **"Download"** on the offer screen. Both taps mean the
+same for the analysis — the user leaves with the offer — so both send the
+same event with the full item.
+
+Next to this chain there are **four custom events**, one per button on the
+offer screen: `generate_code`, `copy_code`, `go_to_shop`,
+`download_coupon`. They carry **no e-commerce parameters**; the offer they
+belong to can only be read from the `screen_name` that Firebase attaches
+to every event.
+
+One screen can carry several lists. Here we look at one list only:
+**Highlights** on the start screen, with the four offer cards.
+
+## Why `begin_checkout` marks the target action
+
+`begin_checkout` is a reserved GA4 e-commerce event, so it takes the
+`items` array. The offer, brand, coupon, list and position travel to the
+target click and can be read in the standard e-commerce reports with no
+custom fields.
+
+A custom event cannot carry `items` — Firebase drops array parameters on
+non-e-commerce events (`firebase_error 21`). So `go_to_shop` and
+`download_coupon` alone would leave the target click with no offer data in
+the e-commerce reports.
+
+The name is not literal: the app has no checkout and no cart. The
+e-commerce checkout funnel is reused to measure a coupon funnel.
+**This has to be agreed inside the company before it goes live.** The gain
+is the ready-made funnel and item reporting; the cost is that "checkout"
+in the reports means "left for the shop, or downloaded the coupon".
+
+## Values
+
+| Firebase constant | Where the value comes from | gtag.js parameter (for the analyst) |
+|---|---|---|
+| `Param.ITEM_LIST_ID` | fixed: `home_highlights` | `item_list_id` |
+| `Param.ITEM_LIST_NAME` | fixed: `Highlights` | `item_list_name` |
+| `Param.ITEM_ID` | Attachment 1 → *Tracking values*, column `app offer id` | `item_id` |
+| `Param.ITEM_NAME` | Attachment 1 → *Tracking values*, column `Offer from` | `item_name` |
+| `Param.ITEM_BRAND` | same value as `item_name` | `item_brand` |
+| `Param.COUPON` | Attachment 1 → *Tracking values*, column `current_offer` | `coupon` |
+| `Param.INDEX` | Attachment 1 → *Tracking values*, column `index` | `index` |
+| `code_copied` | custom, only in `go_to_shop` — see below | `code_copied` |
+
+Types: `index` is a number (`putLong`), everything else in the item is a
+string.
+
+## Code
+
+**The code blocks below are filled with the values of one offer as an
+example: `offer_01`, Fitwerk, index `0`.** Every event always carries the
+offer it is really about. A tap on the third card sends `offer_03`,
+`Kaffeekontor`, `Versandkostenfrei bestellen`, `index` `2` — and the
+`view_item` and `begin_checkout` of that offer carry the same values.
+
+Where `item_list_id` and `item_list_name` go:
+
+- `view_item_list`, `select_item`: at event level, outside the items.
+- `view_item`, `begin_checkout`: inside the item — these events cannot
+  carry them at event level.
+
+A developer may instead always put them inside the items, for every event.
+Then the two values repeat with each item instead of being written once at
+event level. Pick whichever is simpler to implement.
+
+### `view_item_list`
+
+Trigger: when the user sees the list — in practice, together with the
+start-screen `screen_view`. It carries all four offers.
 
 ```kotlin
-@Composable
-fun ScreenViewEffect(screenName: String, currentOffer: String) {
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, screenName) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                Firebase.analytics.logEvent(FirebaseAnalytics.Event.SCREEN_VIEW) {
-                    param(FirebaseAnalytics.Param.SCREEN_NAME, screenName)
-                    param("current_offer", currentOffer)
-                }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
+val item01 = Bundle().apply {
+    putString(FirebaseAnalytics.Param.ITEM_ID, "offer_01")
+    putString(FirebaseAnalytics.Param.ITEM_NAME, "Fitwerk")
+    putString(FirebaseAnalytics.Param.ITEM_BRAND, "Fitwerk")
+    putString(FirebaseAnalytics.Param.COUPON, "20 % auf alle Sportschuhe")
+    putLong(FirebaseAnalytics.Param.INDEX, 0)
+}
+// the same for offer_02 (index 1), offer_03 (index 2), offer_04 (index 3)
+
+Firebase.analytics.logEvent(FirebaseAnalytics.Event.VIEW_ITEM_LIST) {
+    param(FirebaseAnalytics.Param.ITEM_LIST_ID, "home_highlights")
+    param(FirebaseAnalytics.Param.ITEM_LIST_NAME, "Highlights")
+    param(
+        FirebaseAnalytics.Param.ITEMS,
+        arrayOf(item01, item02, item03, item04),
+    )
 }
 ```
 
-- `StartScreen` calls it with `START_SCREEN_NAME` and
-  `START_CURRENT_OFFER` (the two constants in `Analytics.kt`).
-- `OfferScreen` calls it with `offer.shop` and `offer.title`.
-- `screenName` is the key of the effect. Opening another offer keeps the
-  same composable on screen with a new name, so the effect runs again and
-  a new `screen_view` is sent.
-- `LocalLifecycleOwner` needs the dependency
-  `androidx.lifecycle:lifecycle-runtime-compose`.
+The event says the list was on the screen. It does not say that the user
+saw all four cards — see
+[Attachment 2](#attachment-2--open-questions-and-ideas).
+
+### `select_item`
+
+Trigger: the user taps **"Zum Angebot"**. Carries the offer that was
+tapped.
+
+```kotlin
+val item = Bundle().apply {
+    putString(FirebaseAnalytics.Param.ITEM_ID, "offer_01")
+    putString(FirebaseAnalytics.Param.ITEM_NAME, "Fitwerk")
+    putString(FirebaseAnalytics.Param.ITEM_BRAND, "Fitwerk")
+    putString(FirebaseAnalytics.Param.COUPON, "20 % auf alle Sportschuhe")
+    putLong(FirebaseAnalytics.Param.INDEX, 0)
+}
+
+Firebase.analytics.logEvent(FirebaseAnalytics.Event.SELECT_ITEM) {
+    param(FirebaseAnalytics.Param.ITEM_LIST_ID, "home_highlights")
+    param(FirebaseAnalytics.Param.ITEM_LIST_NAME, "Highlights")
+    param(FirebaseAnalytics.Param.ITEMS, arrayOf(item))
+}
+```
+
+### `view_item`
+
+Trigger: a tap on an offer in the list opened the offer screen.
+`view_item` follows the `screen_view` of that screen and **belongs to that
+one opening**.
+
+Nothing else sends it. A return from the browser, a switch to another app
+and back, or a system dialog on top — each of those sends `screen_view`
+again, `view_item` not.
+
+A second tap on the same offer in the list is a new opening, not a return:
+it sends `select_item`, `screen_view` and `view_item` again.
+
+The item is the same one that was sent in `select_item` (`item_id`,
+`item_name`, `item_brand`, `coupon`, `index`), plus `item_list_id` /
+`item_list_name` inside the item.
+
+```kotlin
+val item = Bundle().apply {
+    putString(FirebaseAnalytics.Param.ITEM_LIST_ID, "home_highlights")
+    putString(FirebaseAnalytics.Param.ITEM_LIST_NAME, "Highlights")
+    putString(FirebaseAnalytics.Param.ITEM_ID, "offer_01")
+    putString(FirebaseAnalytics.Param.ITEM_NAME, "Fitwerk")
+    putString(FirebaseAnalytics.Param.ITEM_BRAND, "Fitwerk")
+    putString(FirebaseAnalytics.Param.COUPON, "20 % auf alle Sportschuhe")
+    putLong(FirebaseAnalytics.Param.INDEX, 0)
+}
+
+Firebase.analytics.logEvent(FirebaseAnalytics.Event.VIEW_ITEM) {
+    param(FirebaseAnalytics.Param.ITEMS, arrayOf(item))
+}
+```
+
+### `begin_checkout`
+
+Trigger: the user taps **"Zum Shop"** or **"Download"**, on the tap and
+before the side effect (browser, PDF) — not on its result. Opening the
+browser or saving the PDF can fail for technical reasons; that is not user
+behaviour. The item is the same one as in `view_item` above.
+
+```kotlin
+Firebase.analytics.logEvent(FirebaseAnalytics.Event.BEGIN_CHECKOUT) {
+    param(FirebaseAnalytics.Param.ITEMS, arrayOf(item))
+}
+```
+
+`begin_checkout` does not say which of the two buttons was tapped, and it
+carries no other parameter. It only says that a target action happened on
+this offer. The split between the two buttons is done with the custom
+events below.
+
+### The four custom events
+
+Trigger: the user taps the button — on the tap, before the side effect,
+same timing as `begin_checkout`.
+
+| Event | Button | Parameter |
+|---|---|---|
+| `generate_code` | "Gutschein generieren" | none |
+| `copy_code` | "Kopieren" | none |
+| `go_to_shop` | "Zum Shop" | `code_copied` (see below) |
+| `download_coupon` | "Download" | none |
+
+```kotlin
+Firebase.analytics.logEvent("generate_code") { }
+Firebase.analytics.logEvent("copy_code") { }
+Firebase.analytics.logEvent("download_coupon") { }
+
+Firebase.analytics.logEvent("go_to_shop") {
+    param("code_copied", "yes")
+}
+```
+
+On the **"Zum Shop"** tap, `go_to_shop` and `begin_checkout` are both
+sent. On the **"Download"** tap, `download_coupon` and `begin_checkout`
+are both sent.
+
+**`code_copied`** — a custom parameter of `go_to_shop`, event scope. It
+answers one question: did the user take the code with them into the shop?
+
+It starts at `no` **every time the offer screen is opened**, and turns to
+`yes` if **"Kopieren"** was tapped on that visit of the offer screen
+before the click-out — the same per-visit state as the button colour
+(Attachment 1 → *Behaviour*).
+
+`yes` / `no` and not `true` / `false` on purpose — Firebase has no boolean
+parameter type, the value is a string in any case, and `true` / `false`
+would be read as a boolean that GA4 does not have.
+
+## DA — registration in GA4
+
+This part is for the digital analyst (DA), not for the developer.
+
+Status: **done.**
+
+Register a custom parameter with **event** scope, named `code_copied`.
+
+The item parameters and the Screen name dimension are built in and need no
+registration.
 
 ---
 
-## 3. Later — open notes
+# Attachment 1 — App description
 
-[AI INFO]
-Section 3 is a parking area for the user. Not reworked on purpose: these
-points are the next step and will be picked up after blocks 1 and 2 are
-agreed.
-[/AI INFO]
+Describes the app itself and holds every value the tracking uses. The
+sections above point here and do not repeat the values.
 
-### Known bug
+## Purpose
 
-Open issue in `firebase-android-sdk`: after the flag is set to `false`,
-events can disappear from **DebugView** until the app is reinstalled.
-Fix: uninstall and install the app again (or clear app data) before
-checking DebugView. This only affects the debug tool, not the data that
-is collected.
+**Angebote** is a prototype. The goal is the smallest app on which mobile
+tracking can be set up and measured. This is the first version of the app
+and the first version of its tracking in GA4 (Android, Firebase).
 
-### How to validate
+The app is not a product. It is not published on Google Play, but it is
+built as a normal, installable app. The user interface is in German, the
+documentation is in English. The shops and offers are invented and do not
+refer to real companies.
 
-1. Uninstall the app from the device / emulator (because of the known
-   bug above).
-2. Build and install the debug build.
-3. Enable DebugView:
-   `adb shell setprop debug.firebase.analytics.app de.angebote.trackingtest`
-4. In Firebase DebugView, check for each screen:
-   - exactly **one** `screen_view` per screen visit (no duplicate from
-     automatic tracking),
-   - correct `screen_name` (`Startseite`, `Fitwerk`, …),
-   - `current_offer` present,
-   - a new `screen_view` after going back to the start screen and after
-     returning from the browser click-out.
+## Screens
 
----
+Two screen types, 5 screens in total: one start screen and one offer
+screen per offer (four offers).
 
-# Appendix A — the app
+![start screen](./5ec488238d314522a82009ba798ecf38.png)
 
-This appendix describes the app itself: what is on the screens, what the
-buttons do, and where the values used for tracking come from. It is
-reference material for the tracking blocks above.
+![offer screen](./3b8ae03e7522a13c7512be93811949de.png)
 
-An Android app used as a test ground for mobile tracking. It is not a
-product. It will not be published on Google Play, but it is built as a
-normal, installable app.
+**Start screen.** Four offers one under another, fixed order, no sorting
+and no filtering. Each offer is a card: shop, title, teaser, and a
+**"Zum Angebot"** button that opens the offer screen.
 
-The user interface is in German, because the project is shown to a
-German-speaking audience. All documentation is in English.
-
-## A.1 Screens
-
-The app has two screen types: one start screen and one offer screen.
-There are 5 screens in total — the start screen plus one per offer. The
-screen list with all tracking values is in section 2.2.
-
-### Start screen
-
-Four offers are built into the app. There is no server. Each offer is one
-block with a shop name, a title, a short text and a button
-**"Zum Angebot"** that opens the offer screen.
-
-The order is fixed. There is no sorting and no filtering.
-
-The shops and the offers are invented. They do not refer to real
-companies.
-
-### Offer screen
-
-At the top there is a button back to the start screen. The system back
-button works as well.
-
-Below it, from top to bottom:
+**Offer screen.** A **"Zur Startseite"** button at the top (the system
+back button works too). Below it, top to bottom:
 
 | Element | Behaviour |
 |---|---|
-| Offer text | Two or three paragraphs with the terms of the offer. Static. |
-| Button **"Gutschein generieren"** | Shows the code `654-321` and the button "Kopieren" below it. |
-| Button **"Kopieren"** | Copies the code to the clipboard. A short message confirms it. |
+| Offer text | 2–3 paragraphs with the terms. Static. |
+| Button **"Gutschein generieren"** | Shows the code `654-321` and a "Kopieren" button below it. |
+| Button **"Kopieren"** | Copies the code to the clipboard, shows a short message. |
 | Button **"Zum Shop"** | Click-out. Opens `https://www.google.de` in the external browser. |
 | Text **"Oder Gutschein für die Filiale herunterladen"** | Static. |
-| Button **"Download"** | Creates a PDF coupon and saves it to the Downloads folder. |
+| Button **"Download"** | Builds a PDF coupon and saves it to the Downloads folder (see *Coupon PDF*). |
 
-All three actions — code, click-out and download — are on the same offer
-screen at the same time. There are no different offer types.
+All three actions — code, click-out, download — are available on the offer
+screen at the same time. There are no different offer types. The code
+`654-321` is the same for every offer.
 
-The code `654-321` is the same for every offer.
+## Behaviour
 
-## A.2 General behaviour
+**A tapped button changes colour:** blue → grey. The colour resets to blue
+when the offer screen is opened again.
 
-**A button that was tapped changes colour.** Normal is blue, already
-tapped is grey. The colour goes back to blue when the offer screen is
-opened again.
-
-**Navigation** works only forward through "Zum Angebot" and back to the
+**Navigation** only goes forward through "Zum Angebot" and back to the
 start screen.
 
-## A.3 What the app does not have
+**The app has no:** login, search, search history, Merkzettel, map,
+profile, settings, category list, cart.
 
-No login, no search, no search history, no Merkzettel, no map, no
-profile, no settings, no category list, no shopping cart.
+## Tracking values
 
-## A.4 The coupon PDF
+The values are hard-coded in the app (there is no server). Everything that
+goes into an event comes from this table.
 
-The "Download" button builds a one-page PDF inside the app. The page
-shows the shop name, the offer title and the code in large type, with a
-line asking the user to print it and show it in the shop.
+| Screen (`screen_name`) | Type | Offer from (shop) | `current_offer` | app offer id | index |
+|---|---|---|---|---|---|
+| `Startseite` | start | — | `Neustarter & Highlights` | — | — |
+| `Fitwerk` | offer | Fitwerk | `20 % auf alle Sportschuhe` | `offer_01` | 0 |
+| `Nordlicht Wohnen` | offer | Nordlicht Wohnen | `15 € Rabatt ab 75 € Bestellwert` | `offer_02` | 1 |
+| `Kaffeekontor` | offer | Kaffeekontor | `Versandkostenfrei bestellen` | `offer_03` | 2 |
+| `Sichtbar Optik` | offer | Sichtbar Optik | `2 für 1 auf Brillengläser` | `offer_04` | 3 |
+
+- On an offer screen `screen_name` is the same as the shop name (in
+  *E-commerce events* the same value goes into `item_name` and
+  `item_brand`).
+- `current_offer` on an offer screen is its title (in *E-commerce events*
+  — `coupon`).
+- `index` is the position of the card on the start screen, first is `0`.
+- `screen_class` is not sent (see *Screen tracking*).
+- The offer list is fixed: `item_list_id` = `home_highlights`,
+  `item_list_name` = `Highlights`.
+
+## Coupon PDF
+
+The **"Download"** button builds a one-page PDF inside the app: shop,
+offer title, the code in large type, and a line asking the user to print
+it and show it in the shop.
 
 The file is saved to the public Downloads folder as
-`gutschein-<offer-id>.pdf`, for example `gutschein-offer_01.pdf`. The user
-can open it, print it or share it like any other download.
+`gutschein-<offer-id>.pdf`, for example `gutschein-offer_01.pdf`. It can
+be opened, printed or shared like any other file in Downloads.
 
-## A.5 Technical decisions
+## Technical decisions
 
 | Item | Value |
 |---|---|
 | App name on the phone | Angebote |
 | Application ID | `de.angebote.trackingtest` |
-| Language and UI toolkit | Kotlin, Jetpack Compose |
-| Lowest supported Android | 10 (API 29) |
+| Language and UI | Kotlin, Jetpack Compose |
+| Lowest Android | 10 (API 29) |
 | Built against | API 37 |
-| Analytics SDK | Firebase / Google Analytics for Firebase (see block 1) |
+| Analytics SDK | Firebase / Google Analytics for Firebase |
 
-**Why Android 10 as the lowest version.** Saving a file into the public
-Downloads folder in a clean way needs API 29. Phones older than Android
-10 are rare in Europe, so this is not a real limit for a test app.
+**Why Android 10 as the lowest version.** Writing a file into the public
+Downloads folder in a clean way needs API 29. Phones older than Android 10
+are rare in Europe, so this is not a real limit for a test app.
 
-**Why the SDK came later.** The app was first built without any analytics
-SDK. The point of this app is to measure how much effort each tracking
-change costs *after* the app already exists. If the SDK had gone in
-together with the first build, that effort could not be seen.
+**Why the SDK came later.** The app was first built without any analytics.
+The point of the app is to measure what it costs to add tracking to code
+that is already done. If the SDK had gone in with the first build, that
+cost could not be seen.
 
-## A.6 State
+## Status
 
-The app was built, installed and used on two devices:
-
-- emulator Pixel 10a, Android 17
-- a real Pixel 10a, Android 17
+The app was built, installed and checked by hand on a real Pixel 10a
+(Android 17) and on several emulators, including a tablet.
 
 Checked by hand: start screen, offer screen, code generation, the colour
-change of used buttons, the PDF download into the Downloads folder, and
-the click-out into the browser.
+change of used buttons, the PDF download into Downloads, and the click-out
+into the browser.
+
+---
+
+# Attachment 2 — Open questions and ideas
+
+Things not built yet: parameters worth testing, forward-looking ideas, and
+known gaps. Nothing here is implemented — a working list, not a spec.
+
+## app_open parameters
+
+`app_open` is sent without parameters. Google does not fix a parameter set
+for it, so it is worth testing what can be attached at all.
+
+Candidates:
+
+| Parameter | Meaning | Why |
+|---|---|---|
+| `background_duration_sec` | how long the app was in the background before this foregrounding | input for analysing return behaviour |
+| `trigger_source` | `notification` / `manual_switch` / … | how the user got back into the app |
+| `previous_screen` | which screen was active before the app went to the background | context for the return |
+
+## `screen_view` on a return to the foreground
+
+When the user comes back to a screen from the browser click-out, the PDF
+download, or an app switch, that screen is in focus again and
+`screen_view` fires once more. It is not really a view — it is a return.
+
+Recommendation: **keep sending it.** After a long time in the background
+GA4 starts a new session, and without a `screen_view` that session has no
+entry screen; it also keeps the numbers comparable with `app_open` and
+with Firebase's own automatic screen tracking. The distortion of screen
+counts is handled by marking, not by dropping the event.
+
+Two things to work out:
+
+1. **Mark it.** The return `screen_view` should carry an extra parameter
+   so it can be excluded from mass metrics (screen counts, screen depth),
+   where it would otherwise inflate the numbers.
+2. **Use it.** The same point is useful further on: after the return, does
+   the user go on through the app or close it? A good place to measure
+   post-return behaviour.
+
+The parameter name, its values, and how to tell that a `screen_view` is a
+return are open.
+
+## Rotation resets the app to the start screen
+
+Found on 2026-09-01 while testing the `view_item` trigger, reproduced on an
+emulator: with an offer screen open, turning the device brings the app back
+to the start screen. The open offer is lost.
+
+The cause is not in the tracking. Android destroys the screen on a rotation
+and builds it again, and the app holds "which offer is open" in memory that
+is cleared at that moment. It starts from an empty state, and that state is
+the list.
+
+What it does to the numbers: after a rotation on an offer screen the app
+sends `screen_view` with `Startseite` and a `view_item_list`, as if the
+user had walked back to the list. The visit to the offer looks shorter than
+it was, and the list collects a view nobody asked for.
+
+The fix is small: the open offer has to be kept in the storage that
+survives the rebuild. It is not done yet. When it is done, it has to be
+done together with the `view_item` trigger — once the offer screen survives
+a rotation, the screen is built again and would send a second `view_item`
+for the same opening, unless the fact "already sent" is kept in the same
+storage.
+
+## `view_item_list` over the whole list
+
+`view_item_list` is sent with all four offers at once. The event says the
+list was on the screen, not that the user saw every card. A later version
+could refine this: send only the positions that were really seen.
+
+## Linking the custom events to an offer
+
+The custom events (`generate_code`, `copy_code`, `go_to_shop`,
+`download_coupon`) carry no offer data — the offer is recovered only from
+`screen_name`. Open question: is that enough for the reports, or do these
+events need an explicit offer parameter.
