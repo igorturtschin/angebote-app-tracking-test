@@ -80,6 +80,7 @@ private fun StartScreen(onOfferClick: (Offer) -> Unit) {
     ScreenViewEffect(
         screenName = START_SCREEN_NAME,
         currentOffer = START_CURRENT_OFFER,
+        items = ScreenItems.OfferList,
     )
 
     Column(
@@ -108,7 +109,10 @@ private fun StartScreen(onOfferClick: (Offer) -> Unit) {
                     ColorButton(
                         text = "Zum Angebot",
                         used = false,
-                        onClick = { onOfferClick(offer) },
+                        onClick = {
+                            logSelectItem(offer)
+                            onOfferClick(offer)
+                        },
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -122,6 +126,7 @@ private fun OfferScreen(offer: Offer, onBack: () -> Unit) {
     ScreenViewEffect(
         screenName = offer.shop,
         currentOffer = offer.title,
+        items = ScreenItems.SingleOffer(offer),
     )
 
     val context = LocalContext.current
@@ -158,6 +163,7 @@ private fun OfferScreen(offer: Offer, onBack: () -> Unit) {
             text = "Gutschein generieren",
             used = "generieren" in used,
             onClick = {
+                logGenerateCode()
                 markUsed("generieren")
                 codeVisible = true
             },
@@ -174,6 +180,7 @@ private fun OfferScreen(offer: Offer, onBack: () -> Unit) {
                 text = "Kopieren",
                 used = "kopieren" in used,
                 onClick = {
+                    logCopyCode()
                     markUsed("kopieren")
                     copyToClipboard(context, offer.code)
                     Toast.makeText(context, "Code kopiert", Toast.LENGTH_SHORT).show()
@@ -186,6 +193,8 @@ private fun OfferScreen(offer: Offer, onBack: () -> Unit) {
             text = "Zum Shop",
             used = "shop" in used,
             onClick = {
+                logGoToShop(codeCopied = "kopieren" in used)
+                logBeginCheckout(offer)
                 markUsed("shop")
                 openShop(context)
             },
@@ -203,6 +212,8 @@ private fun OfferScreen(offer: Offer, onBack: () -> Unit) {
             text = "Download",
             used = "download" in used,
             onClick = {
+                logDownloadCoupon()
+                logBeginCheckout(offer)
                 markUsed("download")
                 val name = downloadCouponPdf(context, offer)
                 val message = if (name != null) {
