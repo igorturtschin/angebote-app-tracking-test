@@ -10,8 +10,6 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -52,15 +50,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // app_open must be the first event of every foregrounding, before the
-        // screen_view of the visible screen (concept block 4). This observer
-        // is added before setContent, so it runs before the screens' own
-        // lifecycle observers.
-        lifecycle.addObserver(
-            LifecycleEventObserver { _, event ->
-                if (event == Lifecycle.Event.ON_RESUME) logAppOpen()
-            },
-        )
+        // app_open is sent from the process lifecycle observer in
+        // TrackingApp.onCreate, on ON_START of the whole app.
+        // See docs/tracking-concept.md, block 4.
 
         setContent {
             MaterialTheme {
