@@ -3,6 +3,7 @@ package de.angebote.trackingtest
 import android.os.Bundle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -12,27 +13,15 @@ import com.google.firebase.analytics.analytics
 import com.google.firebase.analytics.logEvent
 
 /**
- * Screen tracking, see docs/tracking-concept.md, block 2.
+ * Screen tracking, see docs/tracking-concept.md, section "Screen tracking".
  *
  * The automatic screen_view of Firebase is switched off in the manifest.
  * Every screen sends its own event instead.
  */
 
-/** Values of the start screen, taken from the screen table of the concept. */
+/** Values of the start screen, from the "Tracking values" table in Attachment 1. */
 const val START_SCREEN_NAME = "Startseite"
 const val START_CURRENT_OFFER = "Neustarter & Highlights"
-
-/**
- * The e-commerce event a screen sends together with its screen_view, at the
- * same ON_RESUME moment. See tracking-concept.md, block 3.
- */
-sealed interface ScreenItems {
-    /** Start screen: view_item_list with the whole Highlights list. */
-    data object OfferList : ScreenItems
-
-    /** Offer screen: view_item with the one open offer. */
-    data class SingleOffer(val offer: Offer) : ScreenItems
-}
 
 /**
  * Sends screen_view every time the screen is resumed.
@@ -45,9 +34,19 @@ sealed interface ScreenItems {
  * [screenName] is also the key of the effect. When the user opens another
  * offer, the same composable stays on screen with a new name, and the
  * effect runs again.
+ *
+ * [sendViewItemList] is true on the start screen only. view_item_list
+ * belongs to the same moment as its screen_view: the list is on the screen
+ * again, so it is reported again. See tracking-concept.md, section
+ * "E-commerce events". The offer screen has no such companion — its
+ * view_item is sent once per opening, see [OfferViewItemEffect].
  */
 @Composable
-fun ScreenViewEffect(screenName: String, currentOffer: String, items: ScreenItems) {
+fun ScreenViewEffect(
+    screenName: String,
+    currentOffer: String,
+    sendViewItemList: Boolean = false,
+) {
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, screenName) {
         val observer = LifecycleEventObserver { _, event ->
@@ -58,11 +57,7 @@ fun ScreenViewEffect(screenName: String, currentOffer: String, items: ScreenItem
                     // so the value would say nothing about the screen.
                     param("current_offer", currentOffer)
                 }
-                // Same ON_RESUME, one place: the list view or the item view.
-                when (items) {
-                    ScreenItems.OfferList -> logViewItemList()
-                    is ScreenItems.SingleOffer -> logViewItem(items.offer)
-                }
+                if (sendViewItemList) logViewItemList()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -71,20 +66,44 @@ fun ScreenViewEffect(screenName: String, currentOffer: String, items: ScreenItem
 }
 
 /**
- * Sent when the app comes to the foreground, see tracking-concept.md
- * block 4. Must be the first event of that moment, before screen_view.
+ * Sends view_item once for one opening of the offer screen. See
+ * tracking-concept.md, section "E-commerce events" -> view_item.
  *
- * The observer that calls this is added in MainActivity.onCreate before
- * setContent, so it runs before the screens' own lifecycle observers.
- * No parameters for now (Appendix B, B.1).
+ * view_item is not a screen event. It says that the user picked this offer
+ * and its screen opened, so it must not repeat while the same screen only
+ * comes back into focus: back from the browser, back from the background,
+ * or after a system dialog. Those moments send screen_view again, and only
+ * screen_view.
+ *
+ * LaunchedEffect gives that moment: it runs when the offer screen enters
+ * the composition and does not react to ON_RESUME. The screen leaves the
+ * composition on the way back to the list, so picking the same offer a
+ * second time is a new opening and sends view_item again.
+ *
+ * Order: this effect runs after the DisposableEffect of [ScreenViewEffect],
+ * so the screen_view of the offer screen goes out first.
+ */
+@Composable
+fun OfferViewItemEffect(offer: Offer) {
+    LaunchedEffect(offer.id) { logViewItem(offer) }
+}
+
+/**
+ * Sent when the app comes to the foreground, see tracking-concept.md,
+ * section "App open". Must be the first event of that moment, before
+ * screen_view.
+ *
+ * The observer that calls this is added in TrackingApp.onCreate, so it is
+ * registered once for the process and runs before the screens' own
+ * lifecycle observers. No parameters for now (Attachment 2).
  */
 fun logAppOpen() {
     Firebase.analytics.logEvent(FirebaseAnalytics.Event.APP_OPEN) {}
 }
 
 /**
- * e-commerce events for the Highlights offer list, see tracking-concept.md
- * block 3. Chain: view_item_list -> select_item -> view_item ->
+ * e-commerce events for the Highlights offer list, see tracking-concept.md,
+ * section "E-commerce events". Chain: view_item_list -> select_item -> view_item ->
  * begin_checkout (the target action, sent on "Zum Shop" and "Download").
  *
  * Next to the chain: four custom events, one per button on the offer
@@ -99,7 +118,7 @@ private const val ITEM_LIST_ID = "home_highlights"
 private const val ITEM_LIST_NAME = "Highlights"
 
 /**
- * Builds the item bundle for one offer (concept 3.2).
+ * Builds the item bundle for one offer (see "E-commerce events" -> Values).
  *
  * [withListInfo] adds item_list_id / item_list_name inside the item. That is
  * needed for view_item and begin_checkout; view_item_list and select_item

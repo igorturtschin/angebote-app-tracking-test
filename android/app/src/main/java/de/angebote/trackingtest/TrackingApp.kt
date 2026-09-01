@@ -7,7 +7,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 
 /**
  * Adds the process-wide lifecycle observer that sends app_open
- * (see docs/tracking-concept.md, block 4).
+ * (see docs/tracking-concept.md, section "App open").
  *
  * ON_START of the whole app is a real foregrounding: the first launch and
  * every return from the background or from the browser click-out. Unlike

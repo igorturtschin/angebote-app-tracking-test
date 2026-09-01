@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
 
         // app_open is sent from the process lifecycle observer in
         // TrackingApp.onCreate, on ON_START of the whole app.
-        // See docs/tracking-concept.md, block 4.
+        // See docs/tracking-concept.md, section "App open".
 
         setContent {
             MaterialTheme {
@@ -85,7 +85,7 @@ private fun StartScreen(onOfferClick: (Offer) -> Unit) {
     ScreenViewEffect(
         screenName = START_SCREEN_NAME,
         currentOffer = START_CURRENT_OFFER,
-        items = ScreenItems.OfferList,
+        sendViewItemList = true,
     )
 
     Column(
@@ -131,8 +131,8 @@ private fun OfferScreen(offer: Offer, onBack: () -> Unit) {
     ScreenViewEffect(
         screenName = offer.shop,
         currentOffer = offer.title,
-        items = ScreenItems.SingleOffer(offer),
     )
+    OfferViewItemEffect(offer)
 
     val context = LocalContext.current
 
