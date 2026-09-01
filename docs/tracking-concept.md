@@ -494,9 +494,9 @@ refer to real companies.
 Two screen types, 5 screens in total: one start screen and one offer
 screen per offer (four offers).
 
-![start screen](./5ec488238d314522a82009ba798ecf38.png)
+![The start screen: the Highlights list with four offer cards](./start-screen.png)
 
-![offer screen](./3b8ae03e7522a13c7512be93811949de.png)
+![An offer screen, with the coupon code already generated](./offer-screen.png)
 
 **Start screen.** Four offers one under another, fixed order, no sorting
 and no filtering. Each offer is a card: shop, title, teaser, and a
