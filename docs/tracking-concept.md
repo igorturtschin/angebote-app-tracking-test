@@ -512,9 +512,12 @@ refer to real companies.
 Two screen types, 5 screens in total: one start screen and one offer
 screen per offer (four offers).
 
-![The start screen: the Highlights list with four offer cards](./start-screen.png)
 
-![An offer screen, with the coupon code already generated](./offer-screen.png)
+| Start screen | Offer screen |
+|:---:|:---:|
+| <img src="./start-screen.png" width="500" alt="start"> | <img src="./offer-screen.png" width="500" alt="offer"> |
+
+
 
 **Start screen.** Four offers one under another, fixed order, no sorting
 and no filtering. Each offer is a card: shop, title, teaser, and a
