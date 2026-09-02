@@ -23,6 +23,24 @@ method name; the developer picks the technical hook. The text stays in the
 imperative even where the status is *done* — the concept is not rewritten
 after the code exists.
 
+## Version history
+
+**1.0 — 2026-09-01.** Initial version. It covers:
+
+- the overview and the rules this document follows;
+- the Analytics SDK setup: Firebase project, Gradle, initialisation in
+  code, and the check that events arrive;
+- the `app_open` event;
+- screen tracking with `screen_view`;
+- the e-commerce chain `view_item_list` -> `select_item` -> `view_item` ->
+  `begin_checkout`, and the four custom events of the offer screen;
+- Attachment 1 — the app description and the tracking values;
+- Attachment 2 — open questions and ideas.
+
+The version number belongs to this document, not to the app. A new
+version is added on top of this list when a section is added, removed, or
+changed in a way that changes what the developer has to build.
+
 ---
 
 # 1. Analytics SDK setup
