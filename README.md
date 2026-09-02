@@ -37,6 +37,11 @@ phone or an emulator like any other debug build.
 The user interface is in German. All code, comments and documentation are
 in English.
 
+## AI
+
+The app is built with Claude Code. The code was written by Claude, models
+Sonnet 5 and Opus 5, on tasks set by the repository owner.
+
 ## Status
 
 This branch is finished: the app works, and its Firebase / GA4 tracking is
