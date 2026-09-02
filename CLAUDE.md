@@ -38,6 +38,19 @@ If it is not `293591015+igorturtschin@users.noreply.github.com`, GitHub
 rejects the push to protect a private email. Fix it with
 `git commit --amend --reset-author`, then push.
 
+### Co-authorship
+
+The user decides this per commit. The default:
+
+- **Code and technical work** — add a `Co-Authored-By` line naming the
+  model that did the work, for example
+  `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`. The user sets
+  the task and the model writes the code, so the model is a real author.
+  The model is named so a reader can see which models were used.
+- **Documentation** — no `Co-Authored-By` line. Most of the work here is
+  the user's; the model writes and advises, which is help, not
+  authorship.
+
 ## Build
 
 ```
