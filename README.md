@@ -11,16 +11,19 @@ to fire the events that matter for tracking, and nothing more.
 The app is not a product. It is not published on Google Play, but it is
 built as a normal, installable app.
 
-**This branch is the app without tracking.** It carries no analytics SDK
-and sends nothing. It is the common starting point: every tracking branch
-grows from here, so the difference between this branch and a tracking one
-is exactly what adding that SDK costs. Firebase / Google Analytics 4 on
-this app is on the `main` branch.
+**This branch adds Amplitude to the app.** It grows from
+`v1/no-tracking`, the same app with no SDK at all, so the difference
+between the two branches is exactly what adding Amplitude costs. Firebase
+/ Google Analytics 4 on the same app is on the `main` branch.
 
 ## Documentation
 
-[docs/app-description.md](docs/app-description.md) — what the app does,
-screen by screen, with the technical decisions behind it.
+[docs/tracking-concept.md](docs/tracking-concept.md) — the tracking
+concept: how the SDK is set up and why, plus a full description of the app
+in Attachment 1. Written in Russian for now; it gets translated later.
+
+[docs/branches-and-tags.md](docs/branches-and-tags.md) — which branch and
+tag holds which variant of the app.
 
 ## Build
 
@@ -49,5 +52,5 @@ Sonnet 5 and Opus 5, on tasks set by the repository owner.
 ## Status
 
 The app is finished for its first version and checked by hand on a phone
-and on emulators. Nothing more is planned here: this branch stays the
-clean starting point, and the tracking lives on its own branches.
+and on emulators. The Amplitude SDK is installed and sends the automatic
+app lifecycle events; the events of the app itself come next.

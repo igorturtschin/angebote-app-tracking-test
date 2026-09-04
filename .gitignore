@@ -1,3 +1,6 @@
+# Keys, never committed
+api-key.properties
+
 # Build output
 build/
 .gradle/

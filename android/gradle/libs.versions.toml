@@ -5,6 +5,8 @@ coreKtx = "1.19.0"
 lifecycleRuntimeKtx = "2.11.0"
 activityCompose = "1.13.0"
 composeBom = "2026.08.00"
+amplitudeAnalytics = "1.+"
+amplitudeSessionReplay = "0.20.14"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -15,6 +17,8 @@ androidx-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+amplitude-analytics = { group = "com.amplitude", name = "analytics-android", version.ref = "amplitudeAnalytics" }
+amplitude-session-replay = { group = "com.amplitude", name = "plugin-session-replay-android", version.ref = "amplitudeSessionReplay" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
