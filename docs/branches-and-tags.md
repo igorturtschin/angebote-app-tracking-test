@@ -3,7 +3,7 @@
 Where the work stands. Check this file before every commit: the change
 belongs on the branch this map names for it.
 
-State: 2026-09-03.
+State: 2026-09-04.
 
 ## Branch names
 
@@ -20,19 +20,24 @@ Format `<version>/<variant>`, lower case, slash as separator.
 
 ## Tree
 
+Branches carry no commit hash here: a branch moves with every commit, so a
+hash written next to it is wrong again the moment it is written — and the
+file cannot name the commit it is part of. Hashes belong to the fixed
+points only, and those are in *Tags* below.
+
 ```
-b1d99c0  shared history of v1
+shared history of v1
    │
-   ├─● 263d8b3   v1/no-tracking       tag v1/base
+   ├─► v1/no-tracking                 tag v1/base
    │   │
-   │   ├─► v1/amplitude               ← in progress: Amplitude goes in here
+   │   ├─► v1/amplitude               ← Amplitude SDK in, events next
    │   │
    │   └─► (later) v2/no-tracking ─┬─► v2/amplitude
    │                               └─► v2/firebase
    │
-   └─● 5930871                        tag v1/firebase
+   └─►                               tag v1/firebase
      │
-     ● 9fc161e   main                 tag shared/v1-firebase-2026-09-02
+     ► main                          tag shared/v1-firebase-2026-09-02
 ```
 
 ## Tags

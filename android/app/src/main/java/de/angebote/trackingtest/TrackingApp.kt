@@ -42,7 +42,10 @@ class TrackingApp : Application() {
             useAdvertisingIdForDeviceId = false
             useAppSetIdForDeviceId = false
             locationListening = false
-            newDeviceIdPerInstall = false
+            // The one line here that differs from the SDK default. A reinstall
+            // is part of testing, so it should look like a new user. A real app
+            // keeps the default false.
+            newDeviceIdPerInstall = true
             migrateLegacyData = false
             enableDiagnostics = false
 

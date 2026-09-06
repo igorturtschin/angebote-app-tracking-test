@@ -16,17 +16,18 @@ Two parts:
 
 # Part 1 — Amplitude (`v1/amplitude`)
 
-Status: **the SDK is installed, no events are sent yet.** `TrackingApp.kt`
-starts Amplitude with the configuration of the concept, the two dependencies
-are in the version catalog, the INTERNET permission is in the manifest.
-`Analytics.kt` does not exist — the concept does not describe events yet.
+Status: **the SDK is installed and `screen_view` is sent.** `TrackingApp.kt`
+starts Amplitude with the configuration of the concept, the dependencies are
+in the version catalog, the INTERNET permission is in the manifest.
+`Analytics.kt` holds the screen event. The e-commerce events are not written
+yet — section 4 of the concept is still empty.
 
 ## What carries over from part 2, and what does not
 
 | Event | Firebase (part 2) | Amplitude |
 |---|---|---|
-| app comes to the foreground | sent by hand from a `ProcessLifecycleOwner` observer | autocapture `APP_LIFECYCLES`, no code at all |
-| screen | own `screen_view` from an `ON_RESUME` observer, automatic one switched off | the same by hand: autocapture `SCREEN_VIEWS` is off, all 5 screens live in one Activity |
+| app comes to the foreground | sent by hand from a `ProcessLifecycleOwner` observer | autocapture `APP_LIFECYCLES`, no code at all — but it also fires on a rotation, which the hand-written one did not |
+| screen | own `screen_view` from an `ON_RESUME` observer, automatic one switched off | the same hook, the same event name; only the SDK call differs |
 | offer view | `LaunchedEffect(offer.id)`, deliberately not the lifecycle observer | same hook, it does not depend on the SDK |
 | checking events | `FA` / `FA-SVC` in logcat, DebugView | different — see `tracking-concept.md`, *Проверка, что события доходят* |
 
@@ -81,15 +82,109 @@ Installed on the `8a` emulator (no Google Play image needed) and started.
   changes nothing: the SDK does not need Play services.
 - No `session_start` / `session_end` line in the log. The session id is set,
   but whether those events are sent has to be checked in Amplitude itself
-  (User Look-Up), not in logcat.
+  (User Look-Up), not in logcat. Checked on 2026-09-06: they are sent — see
+  the second run below.
 - Two findings that belong to the concept, written into its Attachment 2:
   Session Replay runs at a 1 % sample rate and fetches its own remote config,
   and the SDK warns that offline mode needs `ACCESS_NETWORK_STATE`.
 
 ## Event hooks
 
-To be filled in when the code exists. The concept does not describe events
-yet — version 1.1 covers the SDK setup only.
+### `screen_view`
+
+Concept: send `screen_view` when a screen becomes visible, on the first draw
+and on every return to it.
+
+The hook is the one from part 2 and it did not change with the SDK. There is
+no per-screen `onResume()` to override — the five screens are Compose state
+inside one Activity — so the same moment comes from a lifecycle observer.
+`ScreenViewEffect` in `Analytics.kt`:
+
+```kotlin
+@Composable
+fun ScreenViewEffect(screenName: String, currentOffer: String) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, screenName) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                TrackingApp.amplitude.track(EVENT_SCREEN_VIEW, mapOf(...))
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+}
+```
+
+- The `ON_RESUME` lifecycle event and the `onResume()` method are the same
+  moment; only the place of the listener differs. The observer is used
+  because the Activity does not know which of the five screens is open — the
+  screen name lives in the composable.
+- The observer also catches "start screen → offer screen". That happens
+  inside an already resumed Activity and would never reach `onResume()`.
+- `screenName` is the key of the effect: opening another offer keeps the same
+  composable with a new name, so the effect runs again and a new
+  `screen_view` goes out.
+- `StartScreen` passes `START_SCREEN_NAME` / `START_CURRENT_OFFER` (constants
+  in `Analytics.kt`); `OfferScreen` passes `offer.shop` / `offer.title`.
+- `sendViewItemList`, the third parameter this helper had on the Firebase
+  branch, is gone. It belonged to `view_item_list`, and the e-commerce events
+  are not written on this branch yet.
+
+What differs from Firebase, and it is only the call itself:
+
+| | Firebase | Amplitude |
+|---|---|---|
+| call | `Firebase.analytics.logEvent(...) { param(...) }` | `TrackingApp.amplitude.track(name, mapOf(...))` |
+| instance | singleton from the library | `TrackingApp.amplitude`, one per process |
+| names | `FirebaseAnalytics.Event` / `.Param` constants | plain strings, declared at the top of `Analytics.kt` |
+
+One dependency had to come back into the version catalog and into
+`app/build.gradle.kts`: `androidx.lifecycle:lifecycle-runtime-compose`, for
+`LocalLifecycleOwner`. It was dropped when the Firebase code was removed.
+`lifecycle-process` was **not** brought back — it carried the `app_open`
+observer, and autocapture covers that event now.
+
+## Second run on an emulator, 2026-09-06
+
+Emulator `8a`, Android 17, app uninstalled first so the run starts clean.
+33 events, all of them checked in Amplitude through User Look-Up (MCP), not
+only in logcat.
+
+What the run confirms:
+
+- Cold start: `[Amplitude] Start Session` → `Application Installed` →
+  `Application Opened` → `screen_view(Startseite)`.
+- Navigation: one `screen_view` per screen entry, and one on every return to
+  the list. Names and values are exactly the ones in the concept, Attachment
+  1: `screen_name` = `Startseite` / `Fitwerk` / `Nordlicht Wohnen`,
+  `current_offer` the matching offer title.
+- `session_start` **is** sent. Part 1 above left this open after the first
+  run, because logcat prints no line for it; User Look-Up shows it as event 1
+  with the display name `[Amplitude] Start Session`.
+- All 33 events carry the same `session_id`. Nothing in the run — not the
+  rotations, not the trips to the home screen — started a second session,
+  because none of them was longer than `minTimeBetweenSessionsMillis`.
+
+Two findings went into the concept, Attachment 2, *Автозахват `Application
+Opened`*: a rotation produces a `Backgrounded` + `Opened` pair, and the order
+of `Application Opened` against our `screen_view` is not stable.
+
+### Reading the event payload without the Amplitude UI
+
+logcat only prints `Logged event with type: screen_view` — the name, never
+the properties. To see the properties on the device, cut the network so the
+events stay in the SDK queue, then read the queue file:
+
+```
+adb shell svc wifi disable && adb shell svc data disable
+adb shell "run-as de.angebote.trackingtest cat \
+  'app_amplitude/de.angebote.trackingtest/\$default_instance/analytics/events/\$default_instance-13.tmp'"
+```
+
+The file is JSON objects separated by a NUL byte, one per event, with the
+full payload. `run-as` works because the build is debuggable; no root is
+needed. Turning the network back on empties the queue.
 
 ---
 
