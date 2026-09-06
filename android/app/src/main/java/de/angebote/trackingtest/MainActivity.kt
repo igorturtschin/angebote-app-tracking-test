@@ -31,8 +31,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -61,17 +63,21 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun App() {
-    var openOffer by remember { mutableStateOf<Offer?>(null) }
+    // The open offer is held as an id, not the object, so rememberSaveable can
+    // put it in a Bundle. It then survives an Activity rebuild — a rotation, or
+    // the system reclaiming the app from the background — instead of dropping
+    // back to the start screen.
+    var openOfferId by rememberSaveable { mutableStateOf<String?>(null) }
 
-    val current = openOffer
+    val current = openOfferId?.let { id -> OFFERS.firstOrNull { it.id == id } }
     if (current == null) {
-        StartScreen(onOfferClick = { openOffer = it })
+        StartScreen(onOfferClick = { openOfferId = it.id })
     } else {
         OfferScreen(
             offer = current,
-            onBack = { openOffer = null },
+            onBack = { openOfferId = null },
         )
-        BackHandler { openOffer = null }
+        BackHandler { openOfferId = null }
     }
 }
 
@@ -126,9 +132,13 @@ private fun OfferScreen(offer: Offer, onBack: () -> Unit) {
 
     val context = LocalContext.current
 
-    // Button state. remember(offer.id) makes it reset when the screen is opened again.
-    val used = remember(offer.id) { mutableStateListOf<String>() }
-    var codeVisible by remember(offer.id) { mutableStateOf(false) }
+    // Button state. The offer.id key resets it when another offer is opened;
+    // rememberSaveable also keeps it across an Activity rebuild (rotation).
+    val used = rememberSaveable(
+        offer.id,
+        saver = listSaver(save = { it.toList() }, restore = { it.toMutableStateList() }),
+    ) { mutableStateListOf<String>() }
+    var codeVisible by rememberSaveable(offer.id) { mutableStateOf(false) }
 
     fun markUsed(name: String) {
         if (name !in used) used.add(name)

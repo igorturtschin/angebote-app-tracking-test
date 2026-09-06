@@ -4,7 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 /**
  * Screen tracking, see docs/tracking-concept.md, section "3. Экраны —
@@ -28,32 +30,65 @@ const val START_SCREEN_NAME = "Startseite"
 const val START_CURRENT_OFFER = "Neustarter & Highlights"
 
 /**
- * Sends screen_view every time the screen is resumed.
+ * Remembers the screen the last screen_view was sent for.
+ *
+ * A ViewModel survives an Activity recreation (a rotation) but dies with the
+ * process — a cold start, or the system reclaiming the app from the
+ * background. That is the exact line [ScreenViewEffect] needs: a rotation is
+ * the app rebuilding a screen the user never left, so no new screen_view;
+ * everything else is the user arriving at or returning to a screen, so a
+ * screen_view goes out.
+ */
+class ScreenTrackingViewModel : ViewModel() {
+    var lastLoggedScreen: String? = null
+}
+
+/**
+ * Sends screen_view when a screen becomes visible, and on every return to it,
+ * but not when a rotation rebuilds a screen the user is already on.
  *
  * The screens of this app are Compose state inside one Activity, so there is
- * no onResume method to override. The lifecycle observer gives the same
- * moment: it fires when the screen comes to the front, and again on every
- * return to it — back from an offer, or back from the browser.
+ * no onResume method to override. A lifecycle observer gives the same moment:
+ * it fires when the screen comes to the front, and again on every return —
+ * back from an offer, back from the browser, back from the background.
+ *
+ * A rotation also lands on ON_RESUME: the Activity is recreated, this
+ * composable is built again and the observer is added anew. It is told apart
+ * from a real return by two facts together — the app never left the
+ * foreground (no ON_STOP reached this observer) and the screen is the one the
+ * last screen_view was already sent for ([ScreenTrackingViewModel], which
+ * survives the rotation).
  *
  * [screenName] is also the key of the effect. When the user opens another
- * offer, the same composable stays on screen with a new name, and the effect
- * runs again, so the new screen reports itself.
+ * offer, the same composable stays on screen with a new name, the effect runs
+ * again, and the new screen reports itself.
  */
 @Composable
 fun ScreenViewEffect(screenName: String, currentOffer: String) {
     val lifecycleOwner = LocalLifecycleOwner.current
+    val tracking: ScreenTrackingViewModel = viewModel()
     DisposableEffect(lifecycleOwner, screenName) {
+        var leftForeground = false
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                TrackingApp.amplitude.track(
-                    EVENT_SCREEN_VIEW,
-                    mapOf(
-                        PROP_SCREEN_NAME to screenName,
-                        // No screen class. All screens are one Activity, so the
-                        // value would say nothing about the screen.
-                        PROP_CURRENT_OFFER to currentOffer,
-                    ),
-                )
+            when (event) {
+                Lifecycle.Event.ON_STOP -> leftForeground = true
+                Lifecycle.Event.ON_RESUME -> {
+                    val rotation = !leftForeground && screenName == tracking.lastLoggedScreen
+                    leftForeground = false
+                    if (!rotation) {
+                        TrackingApp.amplitude.track(
+                            EVENT_SCREEN_VIEW,
+                            mapOf(
+                                PROP_SCREEN_NAME to screenName,
+                                // No screen class. All screens are one Activity,
+                                // so the value would say nothing about the screen.
+                                PROP_CURRENT_OFFER to currentOffer,
+                            ),
+                        )
+                        tracking.lastLoggedScreen = screenName
+                    }
+                }
+                else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
