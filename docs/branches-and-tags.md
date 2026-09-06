@@ -3,7 +3,7 @@
 Where the work stands. Check this file before every commit: the change
 belongs on the branch this map names for it.
 
-State: 2026-09-04.
+State: 2026-09-06.
 
 ## Branch names
 
@@ -14,9 +14,13 @@ Format `<version>/<variant>`, lower case, slash as separator.
 | `v1/no-tracking` | app v1 without an SDK — the common base |
 | `v1/amplitude` | v1, Amplitude goes in here |
 | `main` | v1 with Firebase / GA4; there is no `v1/firebase` branch |
-| `v2/no-tracking` | app v2 without an SDK (later) |
-| `v2/amplitude` | v2 + Amplitude (later) |
+| `v2/amplitude` | app v2 + Amplitude — branched from `v1/amplitude`, same Amplitude project. Concept updated, app code next |
 | `v2/firebase` | v2 + Firebase / GA4 (later) |
+
+App v2 (bottom navigation, eight offers in four categories, two lists on
+the start screen, five test pages) is built directly on `v2/amplitude`.
+There is no `v2/no-tracking`: the SDK install does not change from v1, so
+there is nothing new to measure by keeping a tracking-free v2 base.
 
 ## Tree
 
@@ -30,14 +34,14 @@ shared history of v1
    │
    ├─► v1/no-tracking                 tag v1/base
    │   │
-   │   ├─► v1/amplitude               ← Amplitude SDK in, events next
-   │   │
-   │   └─► (later) v2/no-tracking ─┬─► v2/amplitude
-   │                               └─► v2/firebase
+   │   └─► v1/amplitude
+   │       │
+   │       └─► v2/amplitude           ← app v2 + concept, code next
    │
    └─►                               tag v1/firebase
      │
      ► main                          tag shared/v1-firebase-2026-09-02
+                                      (later) ─► v2/firebase
 ```
 
 ## Tags

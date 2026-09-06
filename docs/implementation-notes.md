@@ -14,13 +14,55 @@ Two parts:
 
 ---
 
-# Part 1 — Amplitude (`v1/amplitude`)
+# Part 1 — Amplitude (`v1/amplitude`, then `v2/amplitude`)
 
 Status: **the SDK is installed and `screen_view` is sent.** `TrackingApp.kt`
 starts Amplitude with the configuration of the concept, the dependencies are
 in the version catalog, the INTERNET permission is in the manifest.
 `Analytics.kt` holds the screen event. The e-commerce events are not written
 yet — section 4 of the concept is still empty.
+
+## App v2 (`v2/amplitude`)
+
+The branch adds the app changes of concept v2.0: a bottom navigation bar,
+eight offers in four categories, two offer blocks on the start screen and
+five test screens. It carries no SDK change — `v2/amplitude` is branched off
+`v1/amplitude` and the Amplitude setup is untouched.
+
+What this does to the tracking:
+
+- **Bottom navigation** (`MainActivity.App`, a `NavigationBar` with a `Tab`
+  enum) sends no event of its own. A tap on it switches the screen, and the
+  new screen sends its `screen_view` as any other screen entry does. The home
+  icon is a hand-drawn `ImageVector` (`HomeIcon`) so the app needs no
+  material-icons dependency. The `Scaffold` with this bar wraps every screen,
+  the offer screen included: the offer screen has **no back button of its
+  own** — the way back to the start screen is the home item or the system
+  back key. `OfferScreen` lost its `onBack` parameter.
+- **Two blocks on the start screen** (`OFFER_LISTS`, rendered by `OfferBlock`)
+  do not change screen tracking: it is still one `Startseite` screen with one
+  `screen_view` and `current_offer = "Neustarter & Highlights"`. The list
+  ids/names (`Offers.kt`, `HIGHLIGHTS` / `NEUSTARTER`) are there for section 4
+  and are not sent yet.
+- **Test screens** (`MainActivity.TestScreen`) send `screen_view` with
+  `screen_name = "Testseite 1".."Testseite 5"` and **no `current_offer`**.
+  `ScreenViewEffect` now takes `currentOffer: String?` and leaves the property
+  off the event when it is null (`Analytics.kt`, `buildMap`). Moving between
+  test screens changes the effect key, so each one sends its own event — same
+  mechanism as opening another offer.
+- The `Angebot 1`..`Angebot 8` buttons on a test screen open the offer screen
+  directly. The offer's own `screen_view` fires as usual; nothing tells the
+  offer it was reached without a list, which is the point of these screens for
+  section 4.
+
+Checked on emulator `8a` (Android 17), 2026-09-06: start screen shows both
+blocks, the bottom bar shows the house icon and the `1–5` button, test screens
+render, and the queued event payloads are `{"screen_name":"Testseite 3"}` for
+a test screen and `{"screen_name":"Fitwerk","current_offer":"20 % auf alle
+Sportschuhe"}` for an offer opened from it. Re-checked after moving the bottom
+bar onto the offer screen: the offer screen has no back button, the home item
+returns to `Startseite` and sends its `screen_view`. `versionName` bumped to
+`2.0`, `versionCode` to `2`.
 
 ## What carries over from part 2, and what does not
 

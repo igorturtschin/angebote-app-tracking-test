@@ -13,7 +13,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
  * screen_view".
  *
  * The automatic screen_view of Amplitude (autocapture SCREEN_VIEWS) is off:
- * it reads the screen name from the Activity, and all five screens of this
+ * it reads the screen name from the Activity, and all 14 screens of this
  * app live in one Activity. Every screen sends its own event instead.
  *
  * The event and property names are our own, not the ones of the autocapture
@@ -28,6 +28,10 @@ private const val PROP_CURRENT_OFFER = "current_offer"
 /** Start screen values, from "Значения трекинга" in Attachment 1 of the concept. */
 const val START_SCREEN_NAME = "Startseite"
 const val START_CURRENT_OFFER = "Neustarter & Highlights"
+
+/** Test screen names: "Testseite 1" … "Testseite 5". These screens carry no
+ *  current_offer — see the concept, section 3, "Code". */
+fun testScreenName(page: Int): String = "Testseite $page"
 
 /**
  * Remembers the screen the last screen_view was sent for.
@@ -62,9 +66,12 @@ class ScreenTrackingViewModel : ViewModel() {
  * [screenName] is also the key of the effect. When the user opens another
  * offer, the same composable stays on screen with a new name, the effect runs
  * again, and the new screen reports itself.
+ *
+ * [currentOffer] is null on the test screens, which have no offer. The
+ * property is then left off the event rather than sent empty.
  */
 @Composable
-fun ScreenViewEffect(screenName: String, currentOffer: String) {
+fun ScreenViewEffect(screenName: String, currentOffer: String?) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val tracking: ScreenTrackingViewModel = viewModel()
     DisposableEffect(lifecycleOwner, screenName) {
@@ -76,15 +83,15 @@ fun ScreenViewEffect(screenName: String, currentOffer: String) {
                     val rotation = !leftForeground && screenName == tracking.lastLoggedScreen
                     leftForeground = false
                     if (!rotation) {
-                        TrackingApp.amplitude.track(
-                            EVENT_SCREEN_VIEW,
-                            mapOf(
-                                PROP_SCREEN_NAME to screenName,
-                                // No screen class. All screens are one Activity,
-                                // so the value would say nothing about the screen.
-                                PROP_CURRENT_OFFER to currentOffer,
-                            ),
-                        )
+                        val properties = buildMap {
+                            put(PROP_SCREEN_NAME, screenName)
+                            // No screen class. All screens are one Activity,
+                            // so the value would say nothing about the screen.
+                            if (currentOffer != null) {
+                                put(PROP_CURRENT_OFFER, currentOffer)
+                            }
+                        }
+                        TrackingApp.amplitude.track(EVENT_SCREEN_VIEW, properties)
                         tracking.lastLoggedScreen = screenName
                     }
                 }
