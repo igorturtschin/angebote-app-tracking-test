@@ -27,8 +27,8 @@ yet — section 4 of the concept is still empty.
 | Event | Firebase (part 2) | Amplitude |
 |---|---|---|
 | app comes to the foreground | sent by hand from a `ProcessLifecycleOwner` observer | autocapture `APP_LIFECYCLES`, no code at all — but it also fires on a rotation, which the hand-written one did not |
-| screen | own `screen_view` from an `ON_RESUME` observer, automatic one switched off | the same hook, the same event name; only the SDK call differs |
-| offer view | `LaunchedEffect(offer.id)`, deliberately not the lifecycle observer | same hook, it does not depend on the SDK |
+| screen | own `screen_view` from an `ON_RESUME` observer, automatic one switched off | same hook and event name; the SDK call differs, and a rotation no longer repeats the event — see *`screen_view`* below |
+| offer view | `LaunchedEffect(offer.id)`, deliberately not the lifecycle observer | same hook, it does not depend on the SDK; not written on this branch yet (section 4) |
 | checking events | `FA` / `FA-SVC` in logcat, DebugView | different — see `tracking-concept.md`, *Проверка, что события доходят* |
 
 ## SDK initialisation
@@ -92,22 +92,37 @@ Installed on the `8a` emulator (no Google Play image needed) and started.
 
 ### `screen_view`
 
-Concept: send `screen_view` when a screen becomes visible, on the first draw
-and on every return to it.
+Concept: send `screen_view` when a screen becomes visible and on every return
+to it, but not when a rotation rebuilds a screen the user is already on
+(`tracking-concept.md`, section 3, *Trigger*).
 
-The hook is the one from part 2 and it did not change with the SDK. There is
-no per-screen `onResume()` to override — the five screens are Compose state
-inside one Activity — so the same moment comes from a lifecycle observer.
+There is no per-screen `onResume()` to override — the five screens are Compose
+state inside one Activity — so the moment comes from a lifecycle observer.
 `ScreenViewEffect` in `Analytics.kt`:
 
 ```kotlin
+class ScreenTrackingViewModel : ViewModel() {
+    var lastLoggedScreen: String? = null
+}
+
 @Composable
 fun ScreenViewEffect(screenName: String, currentOffer: String) {
     val lifecycleOwner = LocalLifecycleOwner.current
+    val tracking: ScreenTrackingViewModel = viewModel()
     DisposableEffect(lifecycleOwner, screenName) {
+        var leftForeground = false
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                TrackingApp.amplitude.track(EVENT_SCREEN_VIEW, mapOf(...))
+            when (event) {
+                Lifecycle.Event.ON_STOP -> leftForeground = true
+                Lifecycle.Event.ON_RESUME -> {
+                    val rotation = !leftForeground && screenName == tracking.lastLoggedScreen
+                    leftForeground = false
+                    if (!rotation) {
+                        TrackingApp.amplitude.track(EVENT_SCREEN_VIEW, mapOf(...))
+                        tracking.lastLoggedScreen = screenName
+                    }
+                }
+                else -> Unit
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -116,20 +131,51 @@ fun ScreenViewEffect(screenName: String, currentOffer: String) {
 }
 ```
 
-- The `ON_RESUME` lifecycle event and the `onResume()` method are the same
-  moment; only the place of the listener differs. The observer is used
-  because the Activity does not know which of the five screens is open — the
-  screen name lives in the composable.
-- The observer also catches "start screen → offer screen". That happens
-  inside an already resumed Activity and would never reach `onResume()`.
+- `ON_RESUME` and `onResume()` are the same moment; only the place of the
+  listener differs. The observer is used because the Activity does not know
+  which of the five screens is open — the screen name lives in the composable.
+- The observer also catches "start screen → offer screen". That happens inside
+  an already resumed Activity and would never reach `onResume()`.
 - `screenName` is the key of the effect: opening another offer keeps the same
-  composable with a new name, so the effect runs again and a new
-  `screen_view` goes out.
+  composable with a new name, so the effect runs again and a new `screen_view`
+  goes out.
 - `StartScreen` passes `START_SCREEN_NAME` / `START_CURRENT_OFFER` (constants
   in `Analytics.kt`); `OfferScreen` passes `offer.shop` / `offer.title`.
-- `sendViewItemList`, the third parameter this helper had on the Firebase
-  branch, is gone. It belonged to `view_item_list`, and the e-commerce events
-  are not written on this branch yet.
+
+**Why the rotation guard is not just `rememberSaveable`.** The rule is: a
+rotation sends nothing, but a user who left the app and came back must get a
+`screen_view` — even if the system killed the app in the background and the
+screen had to be rebuilt. So the code needs to tell "the system rebuilt this
+screen under the user" apart from "the user came back to this screen". Two
+signals together do it:
+
+- `ScreenTrackingViewModel` holds the name of the last logged screen. A
+  `ViewModel` survives a rotation (the process lives) but dies with the
+  process — a cold start, or the system reclaiming the app from the
+  background. So after a rotation `lastLoggedScreen` still equals the current
+  screen; after a kill-and-return it is `null`.
+- `leftForeground` is set on `ON_STOP`. A real return to the foreground (from
+  the browser, from another app, from Home) passes through `ON_STOP` on the
+  *same* observer first. A rotation gives the new composition a *fresh*
+  observer that never saw `ON_STOP`.
+
+`screen_view` is skipped only when both say "rotation": the app never left the
+foreground **and** this screen was already logged. Every other path — new
+screen, back-navigation, return from background, return after a process kill,
+cold start — sends.
+
+`viewModel()` needs `androidx.lifecycle:lifecycle-viewmodel-compose`; it was
+added to the version catalog and `app/build.gradle.kts` next to
+`lifecycle-runtime-compose` (which came back earlier for `LocalLifecycleOwner`).
+`lifecycle-process` is still **not** back — autocapture covers `app_open`.
+
+**The open offer surviving the rotation is what made this necessary.**
+`MainActivity.kt` now keeps the open offer as an id in `rememberSaveable`
+(`openOfferId`), and `OfferScreen` keeps `codeVisible` / `used` the same way,
+so a rotation stays on the offer screen instead of dropping to the list. Once
+the offer screen survives the rotation, its `ScreenViewEffect` runs again for
+the same screen — which is exactly the duplicate the guard above removes. On
+the Firebase branch the offer was lost on rotation, so this never showed.
 
 What differs from Firebase, and it is only the call itself:
 
@@ -139,11 +185,9 @@ What differs from Firebase, and it is only the call itself:
 | instance | singleton from the library | `TrackingApp.amplitude`, one per process |
 | names | `FirebaseAnalytics.Event` / `.Param` constants | plain strings, declared at the top of `Analytics.kt` |
 
-One dependency had to come back into the version catalog and into
-`app/build.gradle.kts`: `androidx.lifecycle:lifecycle-runtime-compose`, for
-`LocalLifecycleOwner`. It was dropped when the Firebase code was removed.
-`lifecycle-process` was **not** brought back — it carried the `app_open`
-observer, and autocapture covers that event now.
+`sendViewItemList`, the third parameter this helper had on the Firebase
+branch, is gone. It belonged to `view_item_list`, and the e-commerce events
+are not written on this branch yet — see the note under *Second run* below.
 
 ## Second run on an emulator, 2026-09-06
 
@@ -169,6 +213,38 @@ What the run confirms:
 Two findings went into the concept, Attachment 2, *Автозахват `Application
 Opened`*: a rotation produces a `Backgrounded` + `Opened` pair, and the order
 of `Application Opened` against our `screen_view` is not stable.
+
+## Third run on an emulator, 2026-09-06 — the rotation fix
+
+Emulator `8a`, Android 17. This run checks the change above; `screen_view`
+events counted in `adb logcat -s Amplitude` per step, the screen confirmed
+with screenshots. The first `screen_view` payload was read from the SDK queue
+file (network cut) and carried `screen_name: Startseite`,
+`current_offer: Neustarter & Highlights`; the code puts the same `screenName`
+into every event, so the values on later events are unchanged from run 2.
+
+| Step | `screen_view` | On screen |
+|---|---|---|
+| cold start | 1 (`Startseite`) | list |
+| open Fitwerk offer | 1 | offer screen |
+| rotate on offer (either way) | **0** | still the Fitwerk offer, code/buttons kept |
+| back to list | 1 | list |
+| rotate on list (either way) | **0** | list — run 2 would have sent a spurious `screen_view(Startseite)` here |
+| Home, then reopen | 1 | — |
+| "Don't keep activities" on: offer → Home → reopen | 1 | back on the offer |
+
+Every rotation still produced the `[Amplitude] Application Backgrounded` +
+`Application Opened` pair — that autocapture event is untouched (concept,
+Attachment 2).
+
+### Section 4 (e-commerce) will have to handle the rotation too
+
+`view_item` on the Firebase branch is sent from `LaunchedEffect(offer.id)`,
+which fires whenever `OfferScreen` enters the composition. Now that the open
+offer survives a rotation, that composition is rebuilt on rotation and the
+effect would fire `view_item` again for the same opening. Whoever ports
+section 4 needs an id kept across the rebuild (a `rememberSaveable` flag, or
+the same `ScreenTrackingViewModel` idea) so `view_item` stays one-per-opening.
 
 ### Reading the event payload without the Amplitude UI
 
@@ -346,4 +422,6 @@ fun OfferViewItemEffect(offer: Offer) {
   the open offer is ever made to survive a rotation, the composition is
   built again and this effect would fire a second time for the same
   opening. See the concept, Attachment 2, "Rotation resets the app to the
-  start screen".
+  start screen". On `v1/amplitude` this is no longer hypothetical — the
+  offer now survives the rotation; see Part 1, *Section 4 (e-commerce) will
+  have to handle the rotation too*.
