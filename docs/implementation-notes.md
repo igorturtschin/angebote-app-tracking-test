@@ -16,11 +16,14 @@ Two parts:
 
 # Part 1 — Amplitude (`v1/amplitude`, then `v2/amplitude`)
 
-Status: **the SDK is installed and `screen_view` is sent.** `TrackingApp.kt`
-starts Amplitude with the configuration of the concept, the dependencies are
-in the version catalog, the INTERNET permission is in the manifest.
-`Analytics.kt` holds the screen event. The e-commerce events are not written
-yet — section 4 of the concept is still empty.
+Status: **the SDK is installed, `screen_view` and the section 4 e-commerce
+events are sent.** `TrackingApp.kt` starts Amplitude with the configuration of
+the concept, the dependencies are in the version catalog, the INTERNET
+permission is in the manifest. `Analytics.kt` holds the screen event,
+`Ecommerce.kt` holds `view_item_list` / `select_item` / `view_item` /
+`begin_checkout`. The *DA — настройка в Amplitude* part of section 4 (property
+splitting, the reports, the funnel) is a project setting, not code, and is
+still open.
 
 ## App v2 (`v2/amplitude`)
 
@@ -42,8 +45,8 @@ What this does to the tracking:
 - **Two blocks on the start screen** (`OFFER_LISTS`, rendered by `OfferBlock`)
   do not change screen tracking: it is still one `Startseite` screen with one
   `screen_view` and `current_offer = "Neustarter & Highlights"`. The list
-  ids/names (`Offers.kt`, `HIGHLIGHTS` / `NEUSTARTER`) are there for section 4
-  and are not sent yet.
+  ids/names (`Offers.kt`, `HIGHLIGHTS` / `NEUSTARTER`) feed the section 4
+  `view_item_list` events — see *E-commerce events* below.
 - **Test screens** (`MainActivity.TestScreen`) send `screen_view` with
   `screen_name = "Testseite 1".."Testseite 5"` and **no `current_offer`**.
   `ScreenViewEffect` now takes `currentOffer: String?` and leaves the property
@@ -70,7 +73,7 @@ returns to `Startseite` and sends its `screen_view`. `versionName` bumped to
 |---|---|---|
 | app comes to the foreground | sent by hand from a `ProcessLifecycleOwner` observer | autocapture `APP_LIFECYCLES`, no code at all — but it also fires on a rotation, which the hand-written one did not |
 | screen | own `screen_view` from an `ON_RESUME` observer, automatic one switched off | same hook and event name; the SDK call differs, and a rotation no longer repeats the event — see *`screen_view`* below |
-| offer view | `LaunchedEffect(offer.id)`, deliberately not the lifecycle observer | same hook, it does not depend on the SDK; not written on this branch yet (section 4) |
+| offer view | `LaunchedEffect(offer.id)`, deliberately not the lifecycle observer | same idea, now `ViewItemEffect(offer, opening)` keyed on an opening counter so a rotation that keeps the offer does not repeat it — see *E-commerce events* |
 | checking events | `FA` / `FA-SVC` in logcat, DebugView | different — see `tracking-concept.md`, *Проверка, что события доходят* |
 
 ## SDK initialisation
@@ -227,9 +230,10 @@ What differs from Firebase, and it is only the call itself:
 | instance | singleton from the library | `TrackingApp.amplitude`, one per process |
 | names | `FirebaseAnalytics.Event` / `.Param` constants | plain strings, declared at the top of `Analytics.kt` |
 
-`sendViewItemList`, the third parameter this helper had on the Firebase
-branch, is gone. It belonged to `view_item_list`, and the e-commerce events
-are not written on this branch yet — see the note under *Second run* below.
+`sendViewItemList`, the boolean third parameter this helper had on the
+Firebase branch, came back in a different shape: an `onLogged: (() -> Unit)?`
+lambda that runs in the same guarded branch as the `screen_view`. The start
+screen uses it for its two `view_item_list` events — see *E-commerce events*.
 
 ## Second run on an emulator, 2026-09-06
 
@@ -303,6 +307,149 @@ adb shell "run-as de.angebote.trackingtest cat \
 The file is JSON objects separated by a NUL byte, one per event, with the
 full payload. `run-as` works because the build is debuggable; no root is
 needed. Turning the network back on empties the queue.
+
+---
+
+# E-commerce events — section 4 (`v2/amplitude`)
+
+`Ecommerce.kt`. The chain `view_item_list` → `select_item` → `view_item` →
+`begin_checkout`, plus the `attribution_context` that carries the source list
+from `select_item` to the target action. The concept fixes names, values and
+moments; this is where each one is hooked.
+
+## `AttributionContext` and `EcommerceViewModel`
+
+The concept keeps **one** context — only one offer is open at a time. It is
+held in `EcommerceViewModel` (obtained with `viewModel()` from
+`MainActivity.App` and from `OfferScreen`), not in `rememberSaveable`:
+
+- it must survive a rotation (a `ViewModel` does) — a rotation keeps the user
+  on the offer, so `view_item` / `begin_checkout` must still find the list;
+- it must die with the process (a `ViewModel` does) — the concept says the
+  context lives "until it is overwritten or the app restarts", and after a
+  cold start `view_item` falls back to the offer on screen with no list.
+
+The same ViewModel holds `lastViewItemOpening`, the guard that keeps
+`view_item` one-per-opening (below).
+
+## `view_item_list`
+
+Concept: sent together with the `screen_view` of the start screen, one event
+per block, on every start-screen entry (first, back from an offer, bottom-nav,
+return from the browser), not on scroll or rotation.
+
+Hook: `ScreenViewEffect` grew an `onLogged: (() -> Unit)?` lambda that runs in
+the same lifecycle-observer branch as the `screen_view`, right after it and
+under the same rotation guard. `StartScreen` passes
+`{ OFFER_LISTS.forEach { trackViewItemList(it) } }`. So the two
+`view_item_list` events share the timing and the rotation/return rules of the
+start-screen `screen_view` for free — no second observer. `index` is the
+position of the card inside its block (`offerIds.mapIndexed`), which is exactly
+the concept's position table.
+
+## `select_item`
+
+Concept: the tap on "Zum Angebot" in a card. One event, with the offer and the
+list of that card. Not sent for an offer opened from a test screen.
+
+Hook: `MainActivity.StartScreen`'s `onOfferClick` now carries
+`(offer, list, index)`; `OfferBlock` uses `forEachIndexed` to know the index.
+The click calls `selectItem(...)`, which sends the event **and** writes the
+context, then navigation sets `openOfferId`. The test screen calls
+`selectItemFromTestScreen(...)` instead: it writes the context with no list
+and no `index` and sends nothing.
+
+## `view_item`
+
+Concept: right after the `screen_view` of the offer screen, exactly one per
+opening. Not on return from the browser / the background, not on rotation.
+Reopening the same offer from the list is a new opening and sends again.
+
+Hook: `ViewItemEffect(offer, opening)` in `Ecommerce.kt`. It is **not** on the
+lifecycle observer (that fires again on every return). `opening` is an `Int`
+counter in `MainActivity` (`rememberSaveable`), bumped on every navigation into
+an offer — from a card and from a test-screen button. `ViewItemEffect` sends
+only when `opening != vm.lastViewItemOpening`:
+
+- rotation: the composition is rebuilt and the `LaunchedEffect` runs again, but
+  `opening` is unchanged and the ViewModel remembers it → nothing sent;
+- return from browser/background: same composition, `LaunchedEffect` does not
+  re-run at all;
+- reopen the same offer: `opening` was bumped → sends again.
+
+This is the guard the earlier note ("Section 4 will have to handle the
+rotation too") asked for. Order: `ScreenViewEffect`'s `DisposableEffect` runs
+in the apply phase and its observer gets `ON_RESUME` synchronously;
+`ViewItemEffect`'s `LaunchedEffect` coroutine starts after that, so
+`screen_view` precedes `view_item`.
+
+The event properties (`offerEventProps`): if the stored context is about this
+offer and has a list, the event carries `item_list_id` / `item_list_name` and
+the stored object (with `index`); otherwise just `items` with the offer on
+screen, no list, no `index`.
+
+## `begin_checkout`
+
+Concept: the tap on "Zum Shop" or "Download", before the side effect, same
+properties as the `view_item` of this opening, one per tap.
+
+Hook: `trackBeginCheckout(ecommerce, offer)` is the first line of both
+`onClick` blocks in `OfferScreen`, before `openShop` / `downloadCouponPdf`. It
+reuses `offerEventProps`, so its payload equals the `view_item` of the same
+opening. No dedup — two taps send two events.
+
+## Emulator test, 2026-09-07
+
+Emulator `8a`, Android 17, app uninstalled first. SDK version resolved at
+build: **1.30.1** (unchanged). Network cut before launch, so every event
+stayed in the queue file; read with `run-as` after the run (see *Reading the
+event payload* above), then the network was turned back on and all 25 events
+uploaded with `status: SUCCESS`.
+
+Server side checked with the Amplitude MCP the same day: totals for
+2026-09-07 are `view_item_list` 4, `select_item` 2, `view_item` 3,
+`begin_checkout` 3, `screen_view` 8 — exactly the run. Split by
+`item_list_id`: `select_item` is all `home_highlights` (the two list opens),
+`view_item` and `begin_checkout` are `home_highlights` ×2 plus `(none)` ×1 —
+the `(none)` being the offer opened from the test screen, the concept's
+"без листа" group. `items` is stored as `type: any` (not split): the array
+arrives whole but its children need property splitting, a project setting
+that is off — concept, section 4, *DA — настройка в Amplitude*.
+
+Actions in the emulator, and the events they produced, in order:
+
+| # | Action in the emulator | Events (in queue order) |
+|---|---|---|
+| 1 | cold start, land on the start screen | `session_start`, `Application Installed`, `Application Opened`, `screen_view{Startseite}`, `view_item_list{home_highlights, 4 items, index 0–3}`, `view_item_list{home_neustarter, 6 items, index 0–5}` |
+| 2 | tap "Zum Angebot" on Fitwerk (Highlights, index 0) | `select_item{home_highlights, offer_01, index 0}`, `screen_view{Fitwerk}`, `view_item{home_highlights, offer_01, index 0}` |
+| 3 | tap "Zum Shop" | `begin_checkout{home_highlights, offer_01, index 0}`, then `Application Backgrounded` (browser opened) |
+| 4 | return to the app | `screen_view{Fitwerk}` **only — no second `view_item`**, then `Application Opened` |
+| 5 | system back to the start screen | `screen_view{Startseite}`, `view_item_list{home_highlights}`, `view_item_list{home_neustarter}` |
+| 6 | scroll, tap "Zum Angebot" on Kaffeekontor (Highlights, index 2) | `select_item{home_highlights, offer_03, index 2}`, `screen_view{Kaffeekontor}`, `view_item{home_highlights, offer_03, index 2}` |
+| 7 | tap "Download" | `begin_checkout{home_highlights, offer_03, index 2}` |
+| 8 | bottom nav → Test | `screen_view{Testseite 1}` — **no `view_item_list`** |
+| 9 | tap "Angebot 5" (offer_05, Fadenwerk) | `screen_view{Fadenwerk}`, `view_item{items only — no list, no index}` — **no `select_item`** |
+| 10 | tap "Zum Shop" | `begin_checkout{items only — no list, no index}`, then `Application Backgrounded` |
+
+What the run confirms against the concept:
+
+- `view_item_list` fires once per block, with the concept's exact `index`
+  table (`offer_01` is index 0 in Highlights and index 4 in Neustarter,
+  `offer_03` is 2 and 5), and repeats on every return to the start screen
+  (step 5), not on scroll (step 6 scrolled first, no extra event).
+- The list context set at `select_item` reaches `view_item` and
+  `begin_checkout` unchanged (steps 2, 6).
+- A return to an offer screen sends `screen_view` again but **not**
+  `view_item` (step 4) — the opening is the same.
+- An offer opened from a test screen sends **no `select_item`**, and its
+  `view_item` / `begin_checkout` carry `items` only, no list and no `index`
+  (steps 9, 10).
+- `screen_view` precedes `view_item` on every offer opening.
+- Test screens send no `view_item_list` (step 8).
+
+Order caveat seen again: on the return in step 4 the offer's `screen_view`
+landed before `Application Opened`, matching the concept's note that the order
+of `Application Opened` against our events is not stable.
 
 ---
 

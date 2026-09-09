@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 /** Blue = not tapped yet, grey = already tapped. */
 private val BLUE = Color(0xFF1A56DB)
@@ -84,6 +85,12 @@ private fun App() {
     var testPage by rememberSaveable { mutableIntStateOf(1) }
     // The open offer is held as an id, not the object, so it fits in a Bundle.
     var openOfferId by rememberSaveable { mutableStateOf<String?>(null) }
+    // Bumped on every navigation into an offer screen. It tells one opening
+    // from the next, so view_item stays one-per-opening across a rotation
+    // (Ecommerce.kt, ViewItemEffect).
+    var opening by rememberSaveable { mutableIntStateOf(0) }
+
+    val ecommerce: EcommerceViewModel = viewModel()
 
     val current = openOfferId?.let { id -> OFFERS.firstOrNull { it.id == id } }
 
@@ -122,12 +129,22 @@ private fun App() {
     ) { insets ->
         Box(Modifier.padding(insets)) {
             when {
-                current != null -> OfferScreen(offer = current)
-                tab == Tab.HOME -> StartScreen(onOfferClick = { openOfferId = it.id })
+                current != null -> OfferScreen(offer = current, opening = opening)
+                tab == Tab.HOME -> StartScreen(
+                    onOfferClick = { offer, list, index ->
+                        selectItem(ecommerce, list, offer, index)
+                        openOfferId = offer.id
+                        opening++
+                    },
+                )
                 else -> TestScreen(
                     page = testPage,
                     onPageClick = { testPage = it },
-                    onOfferClick = { openOfferId = it },
+                    onOfferClick = { id ->
+                        selectItemFromTestScreen(ecommerce, offerById(id))
+                        openOfferId = id
+                        opening++
+                    },
                 )
             }
         }
@@ -135,10 +152,13 @@ private fun App() {
 }
 
 @Composable
-private fun StartScreen(onOfferClick: (Offer) -> Unit) {
+private fun StartScreen(onOfferClick: (offer: Offer, list: OfferList, index: Int) -> Unit) {
     ScreenViewEffect(
         screenName = START_SCREEN_NAME,
         currentOffer = START_CURRENT_OFFER,
+        // The list is on the screen again whenever the start screen is, so
+        // view_item_list is reported again — one event per block.
+        onLogged = { OFFER_LISTS.forEach { trackViewItemList(it) } },
     )
 
     Column(
@@ -161,13 +181,16 @@ private fun StartScreen(onOfferClick: (Offer) -> Unit) {
 }
 
 @Composable
-private fun OfferBlock(list: OfferList, onOfferClick: (Offer) -> Unit) {
+private fun OfferBlock(
+    list: OfferList,
+    onOfferClick: (offer: Offer, list: OfferList, index: Int) -> Unit,
+) {
     Text(
         text = list.name,
         fontSize = 20.sp,
         fontWeight = FontWeight.SemiBold,
     )
-    list.offerIds.forEach { id ->
+    list.offerIds.forEachIndexed { index, id ->
         val offer = offerById(id)
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
@@ -185,7 +208,7 @@ private fun OfferBlock(list: OfferList, onOfferClick: (Offer) -> Unit) {
                 ColorButton(
                     text = "Zum Angebot",
                     used = false,
-                    onClick = { onOfferClick(offer) },
+                    onClick = { onOfferClick(offer, list, index) },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -249,13 +272,16 @@ private fun TestScreen(
 }
 
 @Composable
-private fun OfferScreen(offer: Offer) {
+private fun OfferScreen(offer: Offer, opening: Int) {
     ScreenViewEffect(
         screenName = offer.shop,
         currentOffer = offer.title,
     )
+    // Right after the screen_view, once per opening of this screen.
+    ViewItemEffect(offer = offer, opening = opening)
 
     val context = LocalContext.current
+    val ecommerce: EcommerceViewModel = viewModel()
 
     // Button state. The offer.id key resets it when another offer is opened;
     // rememberSaveable also keeps it across an Activity rebuild (rotation).
@@ -318,6 +344,7 @@ private fun OfferScreen(offer: Offer) {
             used = "shop" in used,
             onClick = {
                 markUsed("shop")
+                trackBeginCheckout(ecommerce, offer)
                 openShop(context)
             },
             modifier = Modifier.fillMaxWidth(),
@@ -335,6 +362,7 @@ private fun OfferScreen(offer: Offer) {
             used = "download" in used,
             onClick = {
                 markUsed("download")
+                trackBeginCheckout(ecommerce, offer)
                 val name = downloadCouponPdf(context, offer)
                 val message = if (name != null) {
                     "Gespeichert unter Downloads/" + name

@@ -69,9 +69,17 @@ class ScreenTrackingViewModel : ViewModel() {
  *
  * [currentOffer] is null on the test screens, which have no offer. The
  * property is then left off the event rather than sent empty.
+ *
+ * [onLogged] runs in the same moment as the screen_view, right after it, and
+ * under the same rotation guard. The start screen uses it to send its
+ * view_item_list events together with the screen_view (concept, section 4).
  */
 @Composable
-fun ScreenViewEffect(screenName: String, currentOffer: String?) {
+fun ScreenViewEffect(
+    screenName: String,
+    currentOffer: String?,
+    onLogged: (() -> Unit)? = null,
+) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val tracking: ScreenTrackingViewModel = viewModel()
     DisposableEffect(lifecycleOwner, screenName) {
@@ -93,6 +101,7 @@ fun ScreenViewEffect(screenName: String, currentOffer: String?) {
                         }
                         TrackingApp.amplitude.track(EVENT_SCREEN_VIEW, properties)
                         tracking.lastLoggedScreen = screenName
+                        onLogged?.invoke()
                     }
                 }
                 else -> Unit
