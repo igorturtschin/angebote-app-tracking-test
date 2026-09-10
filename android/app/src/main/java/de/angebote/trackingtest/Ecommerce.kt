@@ -58,10 +58,10 @@ private fun itemObject(offer: Offer, index: Int?): Map<String, Any> = buildMap {
  * only one offer is open at a time (concept, "attribution_context").
  *
  * - Written on select_item, with the values that went into the event.
- * - Written without list properties when the offer was opened from a test
- *   screen: there was a choice, but no list.
- * - Overwritten on every next real choice, left untouched by back-navigation,
- *   bottom-nav, and returning from the browser.
+ * - Overwritten on every next choice made in a list: another card, the same
+ *   offer from another list, the same card again.
+ * - Left untouched by back-navigation, bottom-nav, a walk through a test
+ *   screen, and going to the browser and back: nothing was chosen there.
  * - Lives until it is overwritten or the process dies (a ViewModel: it
  *   survives a rotation, not a cold start).
  */
@@ -114,19 +114,16 @@ fun selectItem(vm: EcommerceViewModel, list: OfferList, offer: Offer, index: Int
 }
 
 /**
- * An offer opened straight from a test screen: a choice was made, no list was
- * involved. Writes the context without list properties and without `index`,
- * and sends no select_item (concept, select_item Trigger).
- */
-fun selectItemFromTestScreen(vm: EcommerceViewModel, offer: Offer) {
-    vm.attribution = AttributionContext(null, null, itemObject(offer, index = null))
-}
-
-/**
  * Event properties for view_item / begin_checkout. If the stored context is
  * about this offer and has a list, the event carries the list and the stored
  * object; otherwise just the offer on screen, with no list and no `index`
  * (concept, "attribution_context": the offer is always known, the list is not).
+ *
+ * This is what makes a walk through a test screen harmless. Opening an offer
+ * from a test screen writes nothing, so an offer chosen in a list earlier and
+ * opened again from a test button still reports that list — the user chose it
+ * there and never chose anywhere else. An offer that was never chosen in a
+ * list has no context of its own, and the event goes out with the offer only.
  */
 private fun offerEventProps(offer: Offer, ctx: AttributionContext?): Map<String, Any> {
     return if (ctx != null && ctx.itemId == offer.id && ctx.listId != null) {

@@ -355,9 +355,9 @@ list of that card. Not sent for an offer opened from a test screen.
 Hook: `MainActivity.StartScreen`'s `onOfferClick` now carries
 `(offer, list, index)`; `OfferBlock` uses `forEachIndexed` to know the index.
 The click calls `selectItem(...)`, which sends the event **and** writes the
-context, then navigation sets `openOfferId`. The test screen calls
-`selectItemFromTestScreen(...)` instead: it writes the context with no list
-and no `index` and sends nothing.
+context, then navigation sets `openOfferId`. The test screen sends nothing
+and writes nothing — see *The test screen no longer overwrites the
+attribution context* below.
 
 ## `view_item`
 
@@ -450,6 +450,118 @@ What the run confirms against the concept:
 Order caveat seen again: on the return in step 4 the offer's `screen_view`
 landed before `Application Opened`, matching the concept's note that the order
 of `Application Opened` against our events is not stable.
+
+---
+
+# `screen_name` everywhere, `previous_screen_name`, button events (`v2/amplitude`)
+
+Concept sections 1 (step 8), 3 (*Предыдущий экран*) and 4 (*Четыре события
+кнопок*). Three pieces that share one thing: the app has to remember which
+screen the user is on.
+
+## One field: `CurrentScreen`
+
+`Analytics.kt`. An object with a single meaningful field — the screen the
+user is on — plus the session it was written in. Not a ViewModel and not
+`rememberSaveable`: the plugin reads it from the SDK pipeline, outside any
+composition, and the concept wants it to die with the process.
+
+Two readers, and the order inside `ScreenViewEffect` is what makes them
+agree:
+
+1. `enter(screenName, sessionId)` returns what was in the field — that is
+   the event's `previous_screen_name` — and writes the new screen in.
+   Called **inside** the rotation guard, so a rotation, which sends no
+   `screen_view`, also writes nothing and the memory keeps the screen the
+   user really came from.
+2. `nameFor(sessionId)` hands the screen to the plugin, but only for an
+   event of the same session.
+
+The session comes from the SDK (`amplitude.sessionId`), never from a timer
+of our own, so our chain cannot drift from the `session_id` the charts cut
+data by. `enter` clears the field when it sees a new session, and the plugin
+clears it from `onSessionIdChanged`, the SDK's own callback. Either way the
+first `screen_view` of a session reports `session_start` as its previous
+screen.
+
+## `ScreenNamePlugin`
+
+An `Enrichment` plugin added in `TrackingApp` right after `SessionReplay`.
+`execute` writes `screen_name` only when the event does not have it: our own
+`screen_view` puts its name in at the moment of the call, which is more
+reliable than the pipeline, where the screen may already have changed.
+
+An event of another session — or one sent while the field is empty — goes
+out without the property, which is exactly the concept's list of events that
+do not get it (`session_start`, `Application Installed`, the first
+`Application Opened`).
+
+## The four button events
+
+`ButtonEvents.kt`. Four plain calls with no item payload; `screen_name` from
+the plugin is what ties them to the offer. `code_copied` on `go_to_shop`
+reads the same per-visit state that colours the pressed button — the `used`
+list of `OfferScreen`, which is dropped when the screen leaves the
+composition, so every opening starts at `no`.
+
+Both target buttons send two events, the button one first, then
+`begin_checkout`, and both before the side effect.
+
+## The test screen no longer overwrites the attribution context
+
+The 2026-09-07 build wrote a list-less context when an offer was opened from
+a test screen. The concept says the opposite: the context does not change on
+a walk through a test screen, because nothing was chosen there. So that
+write is gone — opening an offer from a test button navigates and nothing
+else.
+
+The fallback in `offerEventProps` covers both cases on its own: the stored
+context is used when it is about the offer on screen and has a list,
+otherwise the event carries the offer only. An offer chosen in a list and
+reopened from a test button keeps its list; an offer never chosen in a list
+has none.
+
+## Emulator test, 2026-09-09
+
+Emulator `9_Pro`, Android 17, app uninstalled first, SDK 1.30.1. Network cut
+before launch, the queue file read with `run-as` after the run, then the
+network turned back on and all 32 events uploaded with `status: SUCCESS`.
+
+The run the concept's hardest case asks for is steps 2–5: a list choice, a
+walk through a test screen, the same offer again, the target action.
+
+| # | Action in the emulator | Events (in queue order) |
+|---|---|---|
+| 1 | cold start, land on the start screen | `session_start`, `Application Installed`, `Application Opened` — all three **without `screen_name`**; then `screen_view{Startseite, previous=session_start}`, `view_item_list{home_highlights}`, `view_item_list{home_neustarter}` |
+| 2 | tap "Zum Angebot" on Fitwerk (Highlights, index 0) | `select_item{home_highlights, offer_01, index 0}`, `screen_view{Fitwerk, previous=Startseite}`, `view_item{home_highlights, offer_01, index 0}` |
+| 3 | bottom nav → Test | `screen_view{Testseite 1, previous=Fitwerk}`, no `current_offer` |
+| 4 | tap "Angebot 1" — the same Fitwerk | `screen_view{Fitwerk, previous=Testseite 1}`, `view_item{home_highlights, offer_01, index 0}` — **no `select_item`, and the list survived the test screen** |
+| 5 | tap "Zum Shop" | `go_to_shop{code_copied=no, screen_name=Fitwerk}`, `begin_checkout{home_highlights, offer_01, index 0}`, then `Application Backgrounded{screen_name=Fitwerk}` |
+| 6 | return from the browser | `screen_view{Fitwerk, previous=Fitwerk}` — the concept's loop — and **no second `view_item`**; `Application Opened{screen_name=Fitwerk}` |
+| 7 | bottom nav → Home | `screen_view{Startseite, previous=Fitwerk}`, both `view_item_list` again |
+| 8 | tap "Zum Angebot" on Kaffeekontor (Highlights, index 2) | `select_item{home_highlights, offer_03, index 2}`, `screen_view{Kaffeekontor, previous=Startseite}`, `view_item{home_highlights, offer_03, index 2}` |
+| 9 | tap "Gutschein generieren" | `generate_code{screen_name=Kaffeekontor}` |
+| 10 | tap "Kopieren" | `copy_code{screen_name=Kaffeekontor}` |
+| 11 | tap "Zum Shop" | `go_to_shop{code_copied=yes}`, `begin_checkout{home_highlights, offer_03, index 2}`, `Application Backgrounded` |
+| 12 | return from the browser, tap "Download" | `screen_view{Kaffeekontor, previous=Kaffeekontor}`, `Application Opened`, then `download_coupon`, `begin_checkout{home_highlights, offer_03, index 2}` |
+
+What the run confirms:
+
+- **The context survives a test screen.** Step 5's `begin_checkout` carries
+  `home_highlights` / `Highlights` / `index 0` although the offer was
+  reopened from a test button — nothing was chosen there, so nothing was
+  overwritten. Step 4's `view_item` says the same.
+- `previous_screen_name` follows the walk exactly:
+  `session_start → Startseite → Fitwerk → Testseite 1 → Fitwerk → Startseite
+  → Kaffeekontor`, with the return-to-the-same-screen loop in steps 6 and 12.
+- `screen_name` from the plugin is on every event that has no name of its
+  own, `Application Backgrounded` and `Application Opened` included, and on
+  none of the three cold-start events.
+- `code_copied` is `no` where "Kopieren" was not pressed on that visit
+  (step 5) and `yes` where it was (step 11).
+- Both target buttons produce their pair, button event first (steps 5, 11,
+  12).
+- Test screens still carry no `current_offer` (step 3).
 
 ---
 

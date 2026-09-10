@@ -140,8 +140,10 @@ private fun App() {
                 else -> TestScreen(
                     page = testPage,
                     onPageClick = { testPage = it },
+                    // No select_item and no write of the attribution context:
+                    // there is no list here, and a walk through a test screen
+                    // is not a choice (concept, "attribution_context").
                     onOfferClick = { id ->
-                        selectItemFromTestScreen(ecommerce, offerById(id))
                         openOfferId = id
                         opening++
                     },
@@ -316,6 +318,7 @@ private fun OfferScreen(offer: Offer, opening: Int) {
             used = "generieren" in used,
             onClick = {
                 markUsed("generieren")
+                trackGenerateCode()
                 codeVisible = true
             },
             modifier = Modifier.fillMaxWidth(),
@@ -332,6 +335,7 @@ private fun OfferScreen(offer: Offer, opening: Int) {
                 used = "kopieren" in used,
                 onClick = {
                     markUsed("kopieren")
+                    trackCopyCode()
                     copyToClipboard(context, offer.code)
                     Toast.makeText(context, "Code kopiert", Toast.LENGTH_SHORT).show()
                 },
@@ -343,6 +347,9 @@ private fun OfferScreen(offer: Offer, opening: Int) {
             text = "Zum Shop",
             used = "shop" in used,
             onClick = {
+                // code_copied is the state of this visit to the screen: the
+                // same "Kopieren" that turned the button grey.
+                trackGoToShop(codeCopied = "kopieren" in used)
                 markUsed("shop")
                 trackBeginCheckout(ecommerce, offer)
                 openShop(context)
@@ -362,6 +369,7 @@ private fun OfferScreen(offer: Offer, opening: Int) {
             used = "download" in used,
             onClick = {
                 markUsed("download")
+                trackDownloadCoupon()
                 trackBeginCheckout(ecommerce, offer)
                 val name = downloadCouponPdf(context, offer)
                 val message = if (name != null) {
