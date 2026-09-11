@@ -2,11 +2,11 @@ package de.angebote.trackingtest
 
 /**
  * The four button events of the offer screen, see docs/tracking-concept.md,
- * section "4. E-commerce события", "Четыре события кнопок".
+ * section "4. E-commerce events", "The four button events".
  *
  * One event per button. They carry no product properties: which offer the tap
- * happened on is read from screen_name, which the plugin of section 1, step 8
- * puts on every event. Each is sent at the moment of the tap and before the
+ * happened on is read from screen_name, which the plugin of section 3
+ * ("Screen name on every event") puts on every event. Each is sent at the moment of the tap and before the
  * side effect — a browser that fails to open or a file that fails to save is
  * technology, not behaviour.
  *

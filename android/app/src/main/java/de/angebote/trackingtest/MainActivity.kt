@@ -221,7 +221,7 @@ private fun OfferBlock(
 /**
  * One of the five test screens. They differ only by name (screen_name) and
  * carry no offer data. Used to build path and funnel charts and to open an
- * offer without a list context. See the concept, Attachment 1, "Тест-страницы".
+ * offer without a list context. See the concept, Attachment 1, "Screens", "Test screens".
  */
 @Composable
 private fun TestScreen(

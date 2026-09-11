@@ -64,7 +64,7 @@ class TrackingApp : Application() {
 
         amplitude.add(SessionReplayPlugin())
         // Stamps screen_name on every event that does not carry it already
-        // (concept, step 8). Amplitude does not track the screen by itself.
+        // (concept, section 3). Amplitude does not track the screen by itself.
         amplitude.add(ScreenNamePlugin())
     }
 

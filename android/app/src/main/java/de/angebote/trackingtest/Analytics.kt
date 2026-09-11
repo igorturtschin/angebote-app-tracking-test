@@ -12,7 +12,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 /**
- * Screen tracking, see docs/tracking-concept.md, section "3. Экраны —
+ * Screen tracking, see docs/tracking-concept.md, section "3. Screens —
  * screen_view".
  *
  * The automatic screen_view of Amplitude (autocapture SCREEN_VIEWS) is off:
@@ -30,10 +30,11 @@ private const val PROP_PREVIOUS_SCREEN_NAME = "previous_screen_name"
 private const val PROP_CURRENT_OFFER = "current_offer"
 
 /** previous_screen_name of the first screen of a session. Not a screen name:
- *  a mark that there was no screen before this one (concept, section 3). */
-private const val SESSION_START = "session_start"
+ *  a mark that there was no screen before this one (concept, section 3).
+ *  Not "session_start": that is the name of an SDK event. */
+private const val FIRST_SCREEN_IN_SESSION = "first_screen_in_session"
 
-/** Start screen values, from "Значения трекинга" in Attachment 1 of the concept. */
+/** Start screen values, from "Tracking values" in Attachment 1 of the concept. */
 const val START_SCREEN_NAME = "Startseite"
 const val START_CURRENT_OFFER = "Neustarter & Highlights"
 
@@ -43,7 +44,7 @@ fun testScreenName(page: Int): String = "Testseite $page"
 
 /**
  * The one field the app keeps about navigation: the screen the user is on
- * (concept, section 3, "Что помнит приложение").
+ * (concept, section 3, "What the app remembers").
  *
  * Two readers:
  * - [ScreenViewEffect], which takes what is in it as previous_screen_name and
@@ -55,12 +56,12 @@ fun testScreenName(page: Int): String = "Testseite $page"
  * transition that never happened.
  *
  * It is scoped to a session. The session boundary is the SDK's, not ours
- * (concept, section 3, "Откуда берутся значения"): the field is dropped when
+ * (concept, section 3, "What the app remembers"): the field is dropped when
  * the SDK reports a new session id, and a screen written in an older session
  * is not handed out. So the events the SDK makes at the boundary —
  * session_end, session_start, the Application Opened of the new session — go
  * without screen_name, and the first screen_view of the session reports
- * session_start as its previous screen.
+ * first_screen_in_session as its previous screen.
  */
 object CurrentScreen {
     private const val NO_SESSION = -1L
@@ -76,7 +77,7 @@ object CurrentScreen {
             session = sessionId
             name = null
         }
-        val previous = name ?: SESSION_START
+        val previous = name ?: FIRST_SCREEN_IN_SESSION
         name = screenName
         return previous
     }
@@ -96,7 +97,7 @@ object CurrentScreen {
 
 /**
  * Puts screen_name on every event that does not carry it already (concept,
- * section 1, step 8).
+ * section 3, "Screen name on every event").
  *
  * Amplitude does not remember the screen: an event carries the properties it
  * was given and nothing else. A plugin is the SDK's own extension point — the

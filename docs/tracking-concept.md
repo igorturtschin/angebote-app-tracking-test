@@ -1,135 +1,150 @@
 ---
-title: Angebote — концепт трекинга (Amplitude)
+title: Angebote — Tracking Concept (Amplitude)
 ---
 
-# Обзор
+# Overview
 
-Концепт трекинга для тестового Android-приложения **Angebote**
-(application ID `de.angebote.trackingtest`), ветка `v2/amplitude`.
-SDK аналитики: **Amplitude, Android-Kotlin SDK**.
+## What this document covers
 
-Версия описывает установку SDK, открытие приложения, экраны, воронку
-офферов и четыре кнопки на экране оффера.
+Tracking concept for the **Angebote** Android test app
+(application ID `de.angebote.trackingtest`), branch `v2/amplitude`.
+Analytics SDK: **Amplitude, Android-Kotlin SDK**.
 
-**Что нового в приложении v2** (Приложение 1): нижняя навигация, восемь
-офферов вместо четырёх, два списка офферов на стартовом экране — Highlights
-и Neustarter, — чтобы измерить трекинг двух листов. Для тестирования: два
-оффера стоят в обоих листах, пять тест-страниц для отработки path- и
-funnel-чартов.
+This version covers the SDK setup, the app open, screens, the offer funnel
+and the four buttons on the offer screen.
 
-## Архитектура данных повторяет ветку Firebase — намеренно
+App v2 has a bottom navigation, eight offers, two offer lists on the start
+screen and five test screens. How the app works and why each part of it is
+there — [Attachment 1](#attachment-1--app-description).
 
-Приложение измеряется дважды: веткой на Firebase/GA4 и этой веткой на
-Amplitude. Смысл  — сравнить две системы на одних и тех же
-данных, поэтому имена событий, имена свойств и границы событий здесь взяты
-с ветки Firebase, а не выбраны заново.
+## How to read this document
 
-Amplitude местами устроен иначе, и там, где мы делаем «как в Firebase», это
-решение, а не незнание. Самый заметный пример — целевое действие. В GA4
-массив `items` можно положить только на зарезервированное ecommerce-событие,
-поэтому оба целевых нажатия («Zum Shop» и «Download») сливаются в один
-`begin_checkout`, а кнопки отправляют отдельные события без товарных
-свойств. У Amplitude такого ограничения нет: товарные свойства можно было
-бы положить прямо на события кнопок и обойтись без `begin_checkout`. Мы
-этого не делаем — иначе воронки двух веток перестанут быть сравнимыми.
+The document says **what** to set up and send, **with which names and
+values**, **at which moment** and **why**. It does not say where in the
+code to put it: the developer knows the app.
 
-Где ещё Amplitude пришлось бы делать иначе, отмечено по месту: раздел 3,
-*Имя события*, и раздел 4, *Почему `begin_checkout` — целевое действие*.
+Order: section 0 — decisions made before the first event; section 1 — SDK
+setup; sections 2–4 — one event per section. Attachment 1 — the app
+description and the tracking values; Attachment 2 — open questions, a
+working list, not a spec; Attachment 3 — reference material the developer
+can do without.
 
-## Как читать документ
+The event sections all have the same structure — *Why* (why we measure
+it), *Code* (SDK names and constants), *Values* (where the values come
+from), *Trigger* (the moment to send, in words). Decisions you need to
+understand before the code stand between *Why* and *Code*. Things the code
+is clear without, but that are needed for the implementation or for the
+analyst, stand after *Trigger*. Sections 0 and 1 are different: they are
+not events but a sequence of steps, and the code in them is the
+configuration itself.
 
-Документ говорит, **что** настроить и отправлять, **с какими именами и
-значениями**, **в какой момент** и **зачем**. Он не говорит, в какое место
-кода это вписать: приложение знает разработчик.
+Every section has a **Status** line under its heading (*done* / *in
+progress* / *not done*). The text stays in the imperative even where the
+status is *done*: the concept is not rewritten after the code exists.
 
-Порядок: раздел 0 — решения, которые принимаются до первого события;
-раздел 1 — установка SDK; дальше по событию на раздел.
+Every value the tracking uses is defined once in
+[Attachment 1](#attachment-1--app-description); the sections point to it
+and do not copy it. The whole document works the same way: a detail is
+written in one place, and the rest of the text points to it. You have to
+jump between places while reading, but the information is not duplicated
+and cannot drift away from a copy.
 
-Разделы про события устроены одинаково — *Why* (зачем меряем), *Code*
-(имена и константы SDK), *Values* (откуда берутся значения), *Trigger*
-(момент отправки, словами). Разделы 0 и 1 устроены иначе: это не события, а
-последовательность шагов, и код в них — сама конфигурация.
+**We recommend reading in two windows.** In the first, read the document
+from top to bottom, so the flow is not broken. In the second, open the
+places the links point to.
 
-У каждого раздела под заголовком строка **Статус** (*сделано* / *в работе*
-/ *не сделано*). Текст остаётся в повелительном наклонении даже там, где
-статус *сделано*: концепт не переписывается после того, как появился код.
+Language: the document is in English, like the rest of the repository.
 
-Каждое значение, которое использует трекинг, задано один раз в
-[Приложении 1](#приложение-1--описание-приложения); разделы ссылаются на
-него и не копируют. Читать чуть менее удобно, зато значение не может
-разойтись с копией.
+## The data architecture repeats the Firebase branch — on purpose
 
-Язык: документ временно ведётся по-русски, перевод на английский — позже,
-отдельной задачей. Остальные файлы репозитория на английском.
+The app is measured twice: by a branch with Firebase/GA4 and by this branch
+with Amplitude. The point is to compare the two systems on the same data,
+so the event names, the property names and the event boundaries here are
+taken from the Firebase branch, not chosen again.
 
-## История версий
+In some places Amplitude works differently, and where we do it "like in
+Firebase", this is a decision, not a lack of knowledge. These places are
+marked where they are: section 3, *Event name*, and section 4, *Why
+`begin_checkout` is the target action*.
 
-**1.0 — 2026-09-09.**  Первая версия.
+**One intended difference — the shape of the item properties.** The item
+and the list travel as flat event properties, not as an `items` array like
+in GA4 and in the Firebase branch: on the plan of this Amplitude project
+the array is not split. This is also why `view_item_list` is sent per
+card, not per list, and why its numbers in the two branches do not match.
+Why it is done this way, what it costs and when to go back to the array —
+section 4, *Data shape* and *What the flat schema costs*. The difference is
+described here so that a reader of both branches does not take it for a
+bug.
+
+## Version history
+
+**1.0 — 2026-09-10.**  First version.
 
 
-
----
-
-# 0. Что решается до первого события
-
-Статус: **сделано.**
-
-Три решения ниже потом либо не меняются вообще, либо меняются дорого.
-Ошибку в каждом видно не сразу, а через недели — по дыре в отчётах.
-Подробности и точные значения — в разделе 1, шаг 5.
-
-1. **Регион проекта — европейский.** (Заводится в интерфейсе Amplitude, в
-   коде — `serverZone = ServerZone.EU`.) API-ключ принадлежит региону:
-   ключ европейского проекта не работает в американском и наоборот. Перед
-   тем как вписывать ключ, убедиться, что он взят из европейского проекта.
-   Данные, ушедшие не в тот регион, обратно не переезжают.
-
-2. **Набор встроенных полей — `trackingOptions`.** (Конфигурация SDK.) По
-   документации действует только на проектах, куда ещё ни разу не
-   отправляли данные; после первого события выключить эти поля можно уже
-   только через поддержку Amplitude. Решение про приватность: у нас
-   выключены IP-адрес, рекламный идентификатор и App Set ID.
-
-3. **Перенос со старого SDK — `migrateLegacyData`.** (Конфигурация SDK.) У
-   нас `false`: снятого с развития `com.amplitude:android-sdk` здесь
-   никогда не было. В приложении, которое с него **переезжает**, параметр
-   обязан остаться `true`, иначе существующие пользователи получат новые
-   идентификаторы устройств, придут в отчёты как новые люди, а история
-   оборвётся на дате обновления. Задним числом это не чинится.
 
 ---
 
-# 1. Установка SDK
+# 0. Decisions made before the first event
 
-Статус: **сделано.** Шаги 1–7 собраны и проверены сборкой 2026-09-04,
-шаг 8 — плагин `screen_name` — проверен на эмуляторе 2026-09-09: имя экрана
-пришло на всех событиях, кроме событий границы сессии.
+Status: **done.**
 
-Источники: [Amplitude — Android-Kotlin SDK](https://amplitude.com/docs/sdks/analytics/android/android-kotlin-sdk)
-и инструкция, которую Amplitude показывает внутри проекта после его
-создания. Там, где они расходятся, документ идёт за справочником SDK — см.
-раздел *Расхождения с инструкцией из интерфейса Amplitude*.
+The three decisions below either cannot be changed later at all, or are expensive to change. Details and exact values are in section 1, step 5.
 
-## Шаг 1. Проект Amplitude и зона
+1. **The project region is the EU.** (Set up in the Amplitude UI; in the
+   code — `serverZone = ServerZone.EU`.) The API key belongs to a region:
+   the key of an EU project does not work in a US project, and the other
+   way round. Before you put the key in, make sure it comes from the EU
+   project. Data sent to the wrong region does not move back.
 
-Проект заводится в европейском Amplitude, API-ключ берётся из этого
-проекта. Зона выбирается один раз, до первого события: `serverZone` в коде
-и инстанс, в котором живёт проект, должны совпадать.
+2. **The set of built-in fields — `trackingOptions`.** (SDK configuration.)
+   According to the documentation, it only works on projects that have
+   never received data; after the first event these fields can only be
+   switched off through Amplitude support. A privacy decision: we switch
+   off the IP address, the advertising ID and the App Set ID.
 
-## Шаг 2. API-ключ
+3. **Migration from the old SDK — `migrateLegacyData`.** (SDK
+   configuration.) Ours is `false`: the retired `com.amplitude:android-sdk`
+   was never used here. In an app that **moves** from it, the parameter
+   must stay `true`. Otherwise existing users get new device IDs, show up
+   in reports as new people, and the history breaks at the date of the
+   update. This cannot be fixed afterwards.
 
-Способ хранения — наше решение, а не требование Amplitude: в оригинальной
-инструкции ключ стоит в коде строкой, и так тоже работает. Что этим ключом
-можно и чем рискуем — [Приложение 3](#приложение-3--дополнительная-информация).
+---
 
-Ключ лежит в `android/api-key.properties`, файл внесён в `.gitignore` и не
-коммитится:
+# 1. SDK setup
+
+Status: **done.** Built and checked with a build on 2026-09-04.
+
+Sources: [Amplitude — Android-Kotlin SDK](https://amplitude.com/docs/sdks/analytics/android/android-kotlin-sdk)
+and the setup guide that Amplitude shows inside a project after it is
+created. Where the two differ, this document follows the SDK reference —
+see [Attachment 3](#attachment-3--additional-information), *Differences
+from the setup guide in the Amplitude UI*.
+
+## Step 1. Amplitude project and zone
+
+The project is created in the EU Amplitude, and the API key is taken from
+that project. The zone is chosen once, before the first event (section 0):
+`serverZone` in the code and the instance the project lives in must match.
+
+## Step 2. API key
+
+**How the key gets into the real app is the developer's decision.** This
+step only describes the solution of the test app.
+
+Here the key is kept outside the code. This is not an Amplitude
+requirement: in the original guide the key is a string in the code, and
+that works too.
+
+The key is in `android/api-key.properties`; the file is in `.gitignore`
+and is not committed:
 ```
-AMPLITUDE_API_KEY=<ключ европейского проекта>
+AMPLITUDE_API_KEY=<key of the EU project>
 ```
 
-Без кавычек, без пробелов вокруг `=`. Gradle читает файл и превращает
-значение в константу сборки — в `android/app/build.gradle.kts`:
+No quotes, no spaces around `=`. Gradle reads the file and turns the value
+into a build constant — in `android/app/build.gradle.kts`:
 ```kotlin
 import java.util.Properties
 
@@ -139,7 +154,7 @@ val apiKeys = Properties().apply {
 }
 
 android {
-    buildFeatures { buildConfig = true }   // с AGP 8 выключено по умолчанию
+    buildFeatures { buildConfig = true }   // off by default since AGP 8
 
     defaultConfig {
         buildConfigField(
@@ -151,13 +166,14 @@ android {
 }
 ```
 
-Код читает `BuildConfig.AMPLITUDE_API_KEY`. Если файла нет, ключ пустой, а
-сборка всё равно проходит: события просто не доходят. Это понятнее, чем
-ошибка сборки на свежем клоне репозитория.
+The code reads `BuildConfig.AMPLITUDE_API_KEY`. If the file is missing, the
+key is empty, but the build still passes: the events just do not arrive.
+This is clearer than a build error on a fresh clone of the repository.
 
-## Шаг 3. Зависимости в Gradle
+## Step 3. Gradle dependencies
 
-Две зависимости: сам SDK и плагин Session Replay (о нём — шаг 6).
+Two dependencies: the SDK itself and the Session Replay plugin (see
+step 6).
 
 `android/gradle/libs.versions.toml`:
 
@@ -180,44 +196,54 @@ dependencies {
 }
 ```
 
-**Версия плавающая, как рекомендует Amplitude:** `1.+` — самая свежая
-версия первого поколения на момент сборки. Диапазон разрешается при сборке
-и вмерзает в APK, поэтому установленное приложение плюсик не обновляет:
-новая версия SDK доходит до людей только со следующим релизом. У плагина
-Session Replay номер точный — он на нулевой мажорной версии, и Amplitude
-сам даёт его точным.
+**The version is floating, as Amplitude recommends:** `1.+` is the newest
+version of the first generation at build time. The range is resolved at
+build time and frozen into the APK, so the plus does not update an
+installed app: a new SDK version reaches people only with the next
+release. The Session Replay plugin has an exact version number — it is on
+major version zero, and Amplitude itself gives it as exact.
 
-Чем плавающая версия рискованна для данных и чем этот риск закрыт —
-Приложение 2, *Плавающая версия SDK*.
+What makes a floating version risky for the data, and how that risk is
+covered — Attachment 2, *Floating SDK version*.
 
-## Шаг 4. Разрешение INTERNET и десугаринг
+## Step 4. INTERNET and ACCESS_NETWORK_STATE permissions, desugaring
 
-В `android/app/src/main/AndroidManifest.xml`, выше `<application>`:
+For tracking it matters that the events are sent. As we understand it,
+this needs the `INTERNET` permission, but which permissions go into the
+manifest is the developer's decision. In the test app `AndroidManifest.xml`
+declares both:
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 ```
 
-Без него события никуда не уходят. У пользователя разрешение ничего не
-спрашивает — оно ставится при установке. Firebase приносил его манифестом
-своей библиотеки, поэтому приложение его никогда не объявляло. Ни одна из
-трёх библиотек Amplitude разрешения не объявляет — проверено по их
-манифестам, — поэтому строка нужна своя.
+**`INTERNET`.** The Android-Kotlin SDK reference says nothing about it,
+while the documentation of Amplitude's old Android SDK asks you to add it
+to `AndroidManifest.xml`. The Amplitude libraries do not bring it
+themselves — checked in their manifests. In the Firebase branch the line
+came with the Firebase library.
 
-**Десугаринг не нужен.** SDK использует несколько Java 8 API и требует либо
-десугаринга, либо `minSdk` 21 и выше. У нас 29 — см. Приложение 1,
-*Технические решения*. Включать нечего.
+**`ACCESS_NETWORK_STATE` — recommended by Amplitude** (SDK reference,
+section *Offline mode*). With it, the SDK notices that the connection is
+back and sends the queued events at once. Without it, events go out on the
+normal schedule — `flushIntervalMillis` and `flushQueueSize`. Events are
+not lost in either case.
 
-## Шаг 5. Инициализация SDK
+**No desugaring needed.** The SDK uses a few Java 8 APIs and needs either
+desugaring or `minSdk` 21 or higher. Ours is 29 — see Attachment 1,
+*Technical decisions*. There is nothing to switch on.
 
-SDK инициализируется **в `Application`, до старта первой Activity**, и
-получает контекст приложения, а не Activity. Это не стилистика: Amplitude
-сам считает сессии и сам шлёт события жизненного цикла, поэтому должен
-видеть жизненный цикл всего приложения. Экземпляр создаётся один раз на
-процесс и доступен там, где отправляются события; где именно он лежит —
-решает разработчик.
+## Step 5. SDK initialisation
 
-### Код
+The SDK is initialised **in `Application`, before the first Activity
+starts**, and gets the application context, not an Activity. This is not a
+matter of style: Amplitude counts sessions and sends lifecycle events
+itself, so it must see the lifecycle of the whole app. The instance is
+created once per process and is available where events are sent; where
+exactly it is kept is the developer's decision.
+
+### Code
 ```kotlin
 import com.amplitude.android.Amplitude
 import com.amplitude.android.AutocaptureOption
@@ -242,7 +268,7 @@ val amplitude = Amplitude(BuildConfig.AMPLITUDE_API_KEY, applicationContext) {
     useAdvertisingIdForDeviceId = false
     useAppSetIdForDeviceId = false
     locationListening = false
-    newDeviceIdPerInstall = false
+    newDeviceIdPerInstall = true
     migrateLegacyData = false
     enableDiagnostics = false
 
@@ -251,322 +277,219 @@ val amplitude = Amplitude(BuildConfig.AMPLITUDE_API_KEY, applicationContext) {
 }
 ```
 
-Справочник SDK документирует форму с лямбдой, поэтому взята она; форма
-`Configuration(apiKey = …, context = …)` из инструкции в интерфейсе
-Amplitude тоже рабочая.
+### Values
 
-### Значения
-
-| Параметр | Значение | Почему именно так |
+| Parameter | Value | Why this value |
 |---|---|---|
-| `serverZone` | `ServerZone.EU` | Немецкая аудитория, проект заведён в европейском Amplitude. Решается до первого события. |
-| `autocapture` | `SESSIONS`, `APP_LIFECYCLES`, `DEEP_LINKS` | См. *Autocapture — что включено* ниже. |
-| `enableAutocaptureRemoteConfig` | `false` | Умолчание `true` разрешает менять набор автосбора из интерфейса Amplitude. Тогда код перестаёт быть правдой о том, что собирает приложение: документ говорит одно, приложение шлёт другое. |
-| `trackingOptions` | `disableIpAddress()`, `disableAdid()`, `disableAppSetId()` | Встроенные поля, которые SDK прикладывает к каждому событию сам. IP — самое чувствительное и приложению не нужен. Меняется только до первого события.  |
-| `useAdvertisingIdForDeviceId` | `false` | Привязал бы идентификатор устройства к рекламному ID: лишний модуль Google Play, отдельное разрешение в манифесте и рекламный идентификатор в приложении без рекламы. |
-| `useAppSetIdForDeviceId` | `false` | Мягче рекламного ID, но это всё равно лишний модуль без выигрыша. Собственного идентификатора SDK достаточно. |
-| `migrateLegacyData` | `false` | Старого SDK Amplitude здесь никогда не было, переносить нечего. У приложения, которое переезжает со старого SDK, решение обратное — раздел 0. |
-| `enableDiagnostics` | `false` | Шлёт в Amplitude данные о работе самого SDK. К нашим событиям отношения не имеет, пользы нам не даёт. |
-| `locationListening` | `false` | Сбор геоданных приложению не нужен и потребовал бы разрешения. Умолчание с версии 1.20.7 такое же, но именно у этого параметра оно уже один раз менялось — поэтому написано явно. |
-| `newDeviceIdPerInstall` | `true` | Новый идентификатор при каждой установке превратил бы каждую переустановку в нового пользователя. Переустановка — часть тестирования, поэтому в тестовом приложении активировано. Настоящее приложение - false |
-| `flushQueueSize` | `1` | Умолчание 30 событий. В ручной проверке 30 не накапливается, отправку всегда запускал бы таймер. `1` отправляет каждое событие отдельно. Настоящее приложение оставляет умолчание. |
-| `flushIntervalMillis` | `5000` | Умолчание 30 с. Приложение проверяется руками на одном устройстве, полминуты ожидания на событие дороже лишних запросов. Настоящее приложение оставляет умолчание. |
+| `serverZone` | `ServerZone.EU` | German audience, the project is in the EU Amplitude. Decided before the first event — section 0. |
+| `autocapture` | `SESSIONS`, `APP_LIFECYCLES`, `DEEP_LINKS` | See *Autocapture — what is on* below. |
+| `enableAutocaptureRemoteConfig` | `false` | The default `true` lets the autocapture set be changed from the Amplitude UI. Then the code is no longer the truth about what the app collects: the document says one thing, the app sends another. |
+| `trackingOptions` | `disableIpAddress()`, `disableAdid()`, `disableAppSetId()` | Built-in fields that the SDK adds to every event by itself. The IP is the most sensitive one, and the app does not need it. Can only be changed before the first event — section 0. |
+| `useAdvertisingIdForDeviceId` | `false` | Would tie the device ID to the advertising ID: an extra Google Play module, an extra permission in the manifest and an advertising ID in an app without ads. |
+| `useAppSetIdForDeviceId` | `false` | Softer than the advertising ID, but still an extra module with no gain. The SDK's own ID is enough. |
+| `migrateLegacyData` | `false` | The old Amplitude SDK was never here, there is nothing to migrate. For an app that moves from the old SDK the decision is the opposite — section 0. |
+| `enableDiagnostics` | `false` | Sends data about how the SDK itself works to Amplitude. It has nothing to do with our events and gives us nothing. |
+| `locationListening` | `false` | The app does not need location data, and collecting it would need a permission. The default has been the same since version 1.20.7, but this is exactly the parameter whose default has already changed once — so it is written out. |
+| `newDeviceIdPerInstall` | `true` | **This is intended for the test app: every install must give a new user.** The app is checked with runs, and every run starts with a reinstall; a new ID gives a clean user and a clean session, otherwise all runs merge into one person and the funnels cannot be read. A real app sets `false`: there a reinstall is the same person. |
+| `flushQueueSize` | `1` | The default is 30 events. In a manual check 30 events never pile up, so the timer would always trigger the upload. `1` sends every event on its own. A real app keeps the default. |
+| `flushIntervalMillis` | `5000` | The default is 30 s. The app is checked by hand on one device, and half a minute of waiting per event costs more than extra requests. A real app keeps the default. |
 
-Пять из них — `useAdvertisingIdForDeviceId`, `useAppSetIdForDeviceId`,
-`locationListening`, `migrateLegacyData`, `enableDiagnostics` — выключают
-то, что и так выключено. Они написаны явно по двум причинам: код должен
-показывать, что про них подумали, и явное значение не зависит от того,
-каким это умолчание станет в следующей версии SDK.
+Five of them — `useAdvertisingIdForDeviceId`, `useAppSetIdForDeviceId`,
+`locationListening`, `migrateLegacyData`, `enableDiagnostics` — switch off
+what is already off. They are written out for two reasons: the code must
+show that someone thought about them, and an explicit value does not
+depend on what the default becomes in the next SDK version.
+`newDeviceIdPerInstall` is not in this list: it is the only line in the
+block that changes the SDK behaviour compared with the default (`false`).
 
-`newDeviceIdPerInstall` в этот список не входит: умолчание `false`, а мы
-ставим `true`, и это единственная строка блока, которая меняет поведение
-SDK по сравнению с умолчанием. Настоящее приложение оставляет `false`.
+### Autocapture — what is on
 
+Amplitude can collect six groups of events without a single line of code.
 
-### Autocapture — что включено
-
-Amplitude умеет собирать шесть групп событий без единой строки кода.
-
-| Опция | У нас | Почему |
+| Option | Ours | Why |
 |---|---|---|
-| `SESSIONS` | **вкл** | Начало и конец визита плюс идентификатор сессии на каждом событии. База для всего, что считается «за визит». Единственная опция, которую Amplitude включает сам. |
-| `APP_LIFECYCLES` | **вкл** | Установка, обновление, открытие и сворачивание приложения. «Открытие» — это то, что на ветке Firebase пришлось слать руками как `app_open`; здесь оно стоит одного слова в конфигурации. Сравнение этой работы между двумя SDK — одна из целей приложения. |
-| `DEEP_LINKS` | **вкл** | Диплинков в приложении пока нет, событий не будет. Включено на будущее: когда они появятся, они попадут в данные без правки кода. |
-| `FRUSTRATION_INTERACTIONS` | **выкл** | Rage click и dead click. Полезны, но в этом приложении пока не читаются: событие не может сказать, на каком экране и на каком элементе произошло. **См. Приложение 2** — там условия, при которых их включаем. |
-| `SCREEN_VIEWS` | **выкл** | Имя экрана берётся из заголовка, метки или класса Activity. Все 14 экранов приложения живут в одной Activity, поэтому событие всегда сообщало бы одно и то же имя и дублировало наше собственное. То же решение и по той же причине, что выключение автоматического `screen_view` в Firebase. |
-| `ELEMENT_INTERACTIONS` | **выкл** | Срабатывает на каждом кликабельном элементе. Создаёт много событий, за которые Amplitude берёт деньги. Далеко не все они нужны, и большинство несёт неинформативные данные. |
+| `SESSIONS` | **on** | Start and end of a visit, plus the session ID on every event. The base for everything counted "per visit". The only option that Amplitude switches on by default. |
+| `APP_LIFECYCLES` | **on** | Install, update, open and backgrounding of the app. The "open" is what the Firebase branch had to send by hand as `app_open`; here it costs one word in the configuration. Comparing this work between the two SDKs is one of the goals of the app. |
+| `DEEP_LINKS` | **on** | The app has no deep links yet, so there will be no events. On for the future: when deep links appear, they get into the data without a code change. |
+| `FRUSTRATION_INTERACTIONS` | **off** | Rage clicks and dead clicks. Important, but outside the scope of the test app. |
+| `SCREEN_VIEWS` | **off** | The screen name is taken from the title, the label or the class of the Activity. All 14 screens of the app live in one Activity, so the event would always report the same name and duplicate our own. The same decision, for the same reason, as switching off the automatic `screen_view` in Firebase. |
+| `ELEMENT_INTERACTIONS` | **off** | Fires on every clickable element. It creates a lot of events, and Amplitude charges for them. Far from all of them are needed, and most carry data that says little. |
 
-### Параметры, которые мы не задаём
+### Parameters we do not set
 
-Строки в коде нет — действует умолчание SDK. Что каждый параметр делает,
-человеческим языком — в `infos/amplitude-configuration-options.md`.
+There is no line in the code — the SDK default applies. Three of them are
+left at the default **on purpose**: the default suits us, but it is not
+neutral in itself.
 
-Три из них оставлены по умолчанию **осознанно**: умолчание нас устраивает,
-но само по себе оно не нейтрально.
-
-| Параметр | Умолчание | Почему на него стоит смотреть |
+| Parameter | Default | Why it is worth a look |
 |---|---|---|
-| `serverUrl` | пусто | **Должен остаться пустым.** Значение здесь перебивает `serverZone`, и выбор ЕС молча перестанет действовать. |
-| `optOut` | `false` | Полный выключатель сбора. Сюда придёт решение из баннера согласия, когда он появится. |
-| `minTimeBetweenSessionsMillis` | 5 мин | Сколько приложение может пробыть в фоне, чтобы возврат считался тем же визитом. Приложение уводит человека в браузер, поэтому здесь умолчание — не нейтральное решение, см. Приложение 2. |
+| `serverUrl` | empty | **Must stay empty.** A value here overrides `serverZone`, and the EU choice silently stops working. |
+| `optOut` | `false` | The master switch for data collection. The decision from a consent banner will go here once there is one. |
+| `minTimeBetweenSessionsMillis` | 5 min | How long the app can stay in the background for a return to count as the same visit. The app sends people to the browser, so here the default is not a neutral decision, see Attachment 2. |
 
-Остальные не задаются, и решать в них нечего:
+The others are not set, and there is nothing to decide in them — the list
+is in Attachment 3, *SDK parameters with nothing to decide*.
 
-- **умолчание подходит как есть** — `deviceId`, `flushEventsOnClose`,
-  `callback`, `httpClient`, `useBatch`, `offline`, `storageProvider`,
-  `identifyInterceptStorageProvider`, `identityStorageProvider`,
-  `loggerProvider`, `enableRequestBodyCompression`,
-  `enableCoppaControl`, `instanceName`;
-- **не наш случай** — `minIdLength`, `partnerId`,
-  `identifyBatchIntervalMillis`, `ingestionMetadata`, `sessionId`, `plan`,
-  `interactionsOptions` (настраивает выключенные frustration-события);
-- **устарели** — `flushMaxRetries`, `trackingSessionEvents`,
-  `defaultTracking`.
+### The user is the device: no `userId`, no identify
 
-## Шаг 6. Session Replay
+The app has no login, so `userId` is not set: there is nothing to link the
+device to. A user in the data is a device; the SDK creates its `device_id`
+itself, a new one per install (`newDeviceIdPerInstall`, *Values* table
+above). We do not send user properties with `identify` either: everything
+we measure describes a screen or an offer and travels as event properties.
 
-Плагин добавляется сразу после создания экземпляра:
+## Step 6. Session Replay
+
+The plugin is added right after the instance is created:
 ```kotlin
 import com.amplitude.android.plugins.SessionReplayPlugin
 
 amplitude.add(SessionReplayPlugin())
 ```
 
-Плагин записывает происходящее на экране и показывает запись рядом с
-событиями. На этом приложении это безопасно: офферы и магазины выдуманы,
-код купона одинаковый, входа, поиска и любого ввода нет — см. Приложение 1.
-Плагин остаётся включённым.
+The plugin records what happens on the screen and shows the recording next
+to the events. In this app that is safe: the offers and shops are invented,
+the coupon code is the same for all, and there is no login, no search and
+no text input at all — see Attachment 1. The plugin stays on.
 
-**Частота записи** (какая доля сессий пишется) и **маскирование** (что на
-экране закрывается) здесь не решены — см. Приложение 2.
+The **sample rate** (what share of sessions is recorded) and **masking**
+(what on the screen is hidden) are not decided here — see Attachment 2.
 
-## Шаг 7. Разрешение ACCESS_NETWORK_STATE
+## Check that events arrive
 
-В `android/app/src/main/AndroidManifest.xml`, рядом с `INTERNET`:
+This part is for the analyst, not for the developer.
 
-```xml
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-```
+Amplitude has no separate debug mode that is switched on from outside, like
+Firebase DebugView with `adb shell setprop`. Events go into the normal
+project; what changes is the speed and the level of detail in the logs.
 
-Разрешение описано в справочнике SDK, раздел *Offline mode* (появился в
-версии 1.13.0). С ним SDK проверяет связь на каждом событии: связь есть —
-планирует отправку, связи нет — кладёт событие в хранилище и слушает сеть,
-чтобы отправить накопленное сразу после её возвращения. Без разрешения
-слушателя сети нет, отправка идёт только по `flushIntervalMillis` и
-`flushQueueSize`, и SDK при старте пишет в лог, что офлайн-режим не
-поддерживается.
-
-События не теряются ни в том, ни в другом случае: они лежат в очереди и
-уходят со следующей попыткой. Разница в том, когда именно. В тестовом
-приложении она мала — отправка и так идёт каждые 5 секунд по одному
-событию. В настоящем приложении, где стоят умолчания (30 секунд, 30
-событий), возвращение связи перестаёт быть поводом отправить накопленное.
-
-Разрешение «обычное»: у пользователя ничего не спрашивают, оно объявляется
-в манифесте и выдаётся при установке. Доступа к содержимому трафика не
-даёт — только к тому, есть ли соединение.
-
-## Шаг 8. Плагин `screen_name` — имя экрана на всех событиях
-
-Amplitude не помнит, на каком экране находится пользователь. Каждое событие
-несёт ровно те свойства, которые в него положили; имя экрана к следующим
-событиям само не подставляется. Это отличие от GA4, где `firebase_screen`
-дописывается ко всем событиям автоматически.
-
-Поэтому имя экрана ставит плагин. Плагин здесь — точка расширения самого
-SDK, а не сторонняя библиотека: путь события до отправки устроен как
-конвейер стадий (`Before` → `Enrichment` → `Destination`), и
-`amplitude.add(...)` вставляет в него наш объект. Дальше каждое событие
-проходит через его метод `execute`, где в свойства дописывается
-`screen_name`.
-
-```kotlin
-class ScreenNamePlugin : Plugin {
-    override lateinit var amplitude: Amplitude
-    override val type = Plugin.Type.Enrichment
-
-    override fun execute(event: BaseEvent): BaseEvent {
-        val properties = event.eventProperties ?: mutableMapOf()
-        if (!properties.containsKey("screen_name")) {
-            properties["screen_name"] = currentScreenName   // «текущий экран», раздел 3
-            event.eventProperties = properties
-        }
-        return event
-    }
-}
-```
-
-Плагин добавляется там же, где Session Replay (шаг 6), сразу после создания
-экземпляра:
-
-```kotlin
-amplitude.add(ScreenNamePlugin())
-```
-
-Откуда плагин берёт «текущий экран» — из памяти, которую ведёт приложение;
-что в ней лежит и когда меняется, описано в разделе 3, *Предыдущий экран*.
-
-**Дописывает только там, где свойства ещё нет.** Свои события кладут
-`screen_name` в момент отправки сами (раздел 3, *Code*), плагин достраивает
-остальные. Так значение не зависит от того, в какой момент конвейер SDK
-доберётся до события: между вызовом `track` и обработкой события экран
-может успеть смениться, и событие получило бы имя уже следующего экрана.
-
-**Что получит свойство.** Всё, что происходит, пока человек стоит на
-экране: события приложения, `Application Backgrounded`, `Deep Link Opened`,
-`Application Opened` при возврате внутри сессии, а когда включат
-frustration-события (Приложение 2) — `Rage Click` и `Dead Click`.
-
-**Чего не получит.** События холодного старта и границы сессии:
-`Application Installed`, `session_start`, `session_end` и первый
-`Application Opened` запуска или новой сессии. В эти моменты память экрана
-пуста — раздел 3, *Предыдущий экран*. Пустое значение не подставляется:
-свойства просто нет.
-
-Имя свойства своё, `screen_name`, а не `[Amplitude] Screen Name` — почему,
-см. раздел 3, *Имя события: своё, а не из схемы автозахвата*.
-
-## Расхождения с инструкцией из интерфейса Amplitude
-
-Инструкция, которую Amplitude показывает внутри проекта, рабочая, но
-устроена иначе. Два отличия, кроме формы конструктора — о ней в шаге 5:
-
-1. **`defaultTracking = DefaultTrackingOptions.ALL`.** В справочнике SDK
-   `defaultTracking` помечен как устаревший и заменённый на `autocapture`.
-   Код с ним компилируется и работает, но `ALL` включил бы ещё и screen
-   views, которые нам не нужны.
-2. **Ключ строкой в коде.** У нас он приходит из
-   `BuildConfig.AMPLITUDE_API_KEY` — это наше решение, см. шаг 2.
-
-## Проверка, что события доходят
-
-Это для аналитика, не для разработчика.
-
-У Amplitude нет отдельного режима отладки, который включается снаружи, как
-DebugView у Firebase через `adb shell setprop`. События идут в обычный
-проект; меняется скорость и подробность логов.
-
-**1. События уходят по одному.** Для этого и стоят `flushQueueSize = 1` и
-`flushIntervalMillis = 5000`. Оставшееся в очереди можно вытолкнуть руками:
+**1. Events go out one by one.** This is what `flushQueueSize = 1` and
+`flushIntervalMillis = 5000` are for. What is left in the queue can be
+pushed out by hand:
 
 ```kotlin
 amplitude.flush()
 ```
 
-**2. Лог SDK в logcat.** Штатный логгер пишет в logcat, уровень поднимается
-сразу после создания экземпляра:
+**2. SDK log in logcat.** The built-in logger writes to logcat; the level
+is raised right after the instance is created:
 
 ```kotlin
 amplitude.logger.logMode = Logger.LogMode.DEBUG
 ```
 
-Затем:
+Then:
 
 ```
 adb logcat -s Amplitude
 ```
 
-**3. Сами события в Amplitude.** В проекте раздел *User Look-Up* находит
-тестовое устройство и показывает его события по порядку — ближайший аналог
+**3. The events themselves in Amplitude.** In the project, *User Look-Up*
+finds the test device and shows its events in order — the closest thing to
 DebugView.
 
-Google Play services не нужны, поэтому подойдёт обычный образ эмулятора.
+Google Play services are not needed, so a normal emulator image will do.
 
 ---
 
-# 2. Открытие приложения
+# 2. App open
 
-Статус: **сделано** — кодом делать нечего.
+Status: **done** — nothing to do in the code.
 
 ## Why
 
-Открытие приложения отмечает начало визита: событие выходит каждый раз,
-когда приложение попадает на передний план. По нему считают, как часто
-возвращаются и что делают сразу после возврата.
+The app open marks the start of a visit: the event goes out every time the
+app comes to the foreground. It is used to count how often people come
+back and what they do right after coming back.
 
-Amplitude собирает это сам: автозахват `APP_LIFECYCLES` (раздел 1, шаг 5)
-даёт `[Amplitude] Application Opened`, а с ним `Application Installed`,
-`Updated` и `Backgrounded`. Проверено на первом запуске 2026-09-04.
+Amplitude collects this by itself: autocapture `APP_LIFECYCLES` (section 1,
+step 5) gives `[Amplitude] Application Opened`, and together with it
+`Application Installed`, `Updated` and `Backgrounded`. Checked on the first
+launch on 2026-09-04.
 
-Поэтому ручного эквивалента Firebase-события `app_open` здесь **нет** — он
-дублировал бы автозахваченное. Кода и значений раздел не требует: имя,
-момент и свойства события задаёт SDK, на событие он кладёт
-`[Amplitude] From Background`, `Version` и `Build`. На ветке Firebase то же
-самое стоило наблюдателя за жизненным циклом процесса и своего вызова.
-
-Обмен не бесплатный: момент выбирает SDK, и выбирает он шире, чем выбрали
-бы мы, — см. *Trigger*.
+So there is **no** manual equivalent of the Firebase event `app_open`
+here — it would duplicate the autocaptured one. The section needs no code
+and no values: the SDK sets the name, the moment and the properties of the
+event, and puts `[Amplitude] From Background`, `Version` and `Build` on it.
+In the Firebase branch the same thing cost a process lifecycle observer
+and our own call.
 
 ## Trigger
 
-Моментом управляет SDK, повлиять на него мы не можем. Что о нём важно знать
-аналитику (проверено на эмуляторе 2026-09-06):
+The SDK controls the moment; we cannot influence it. What the analyst
+should know about it (checked on an emulator on 2026-09-06):
 
-- событие выходит на выход приложения на передний план — первый запуск и
-  каждый возврат из фона, включая возврат из браузера и из скачивания PDF;
-- **выходит и на поворот экрана**: поворот даёт пару `Application
-  Backgrounded` + `Application Opened`, хотя приложение всё это время на
-  переднем плане. Событие строит SDK, вызова у нас нет, и проверку на
-  поворот вставить некуда. **Вопрос не решён**, три возможных обхода и цена
-  каждого — [Приложение 2](#приложение-2--открытые-вопросы), *Автозахват
-  `Application Opened`*;
-- **`screen_view` на повороте при этом не уходит.** По общему правилу
-  возврат из фона `screen_view` даёт (раздел 3, *Trigger*), но поворот не
-  возврат: пользователь из приложения не уходил и в него не возвращался,
-  он всё это время смотрел на один экран. Поэтому событие подавлено
-  намеренно — проверено на эмуляторе 2026-09-06, ноль `screen_view` на
-  поворот. Отсюда и признак поворота в данных: `Application Opened` без
-  `screen_view` рядом;
-- на переходы между экранами внутри приложения не выходит;
-- порядок относительно `screen_view` **не гарантирован**. При холодном
-  старте и при повороте `Application Opened` идёт первым, при возврате из
-  фона — вторым, после `screen_view`, с разрывом в единицы миллисекунд. Не
-  строить отчёты на предположении «сначала открытие, потом экран».
+- the event goes out when the app comes to the foreground — the first
+  launch and every return from the background, including a return from
+  the browser and from the PDF download;
+- it does not go out on moves between screens inside the app;
+- **it also goes out on a screen rotation**: a rotation gives the pair
+  `Application Backgrounded` + `Application Opened`, although the app
+  stays in the foreground the whole time. The SDK builds the event, there
+  is no call of ours, and there is nowhere to add a rotation check. **This
+  is not solved**; three possible workarounds and the cost of each —
+  [Attachment 2](#attachment-2--open-questions), *Autocaptured
+  `Application Opened`*. Our `screen_view` is not sent on a rotation
+  (section 3, *Trigger*), so in the data a rotation shows up as this pair
+  with no `screen_view` next to it;
+- the order relative to `screen_view` is **not guaranteed**: on a cold
+  start `Application Opened` comes first, on a return from the background
+  it comes second, a few milliseconds later. Do not build reports on the
+  assumption "first the open, then the screen".
 
 ---
 
-# 3. Экраны — `screen_view`
+# 3. Screens — `screen_view` and the screen name on every event
 
-Статус: **сделано.** Стартовый экран, экраны офферов, тест-страницы и
-переходы по нижней навигации проверены на эмуляторе 2026-09-06 и 2026-09-09:
-события дошли в Amplitude со `screen_name`, `current_offer` и
-`previous_screen_name` и в ожидаемом порядке.
+Status: **done.** The start screen, the offer screens, the test screens and
+moves through the bottom navigation were checked on an emulator on
+2026-09-06 and 2026-09-09: the events reached Amplitude with `screen_name`,
+`current_offer` and `previous_screen_name`, in the expected order. The
+plugin that puts `screen_name` on the other events was checked on an
+emulator on 2026-09-09.
 
 ## Why
 
-Хотим знать, какие экраны открывают чаще, какие реже и в каком порядке их
-проходят. Это вход в работу над экранами и основа для воронки офферов.
+We want to know which screens are opened more often, which less, and in
+which order people go through them. This is the entry point for work on
+screens and the base for the offer funnel.
 
-`screen_view` — единственное событие на тест-страницах (Приложение 1,
-*Тест-страницы*). На них строят path- и funnel-чарты: переходы между
-`Testseite 1`–`Testseite 5` дают цепочку экранов без товарного контекста.
+The app sends the event. Autocapture `SCREEN_VIEWS` is off and must not be
+switched on: with one Activity for all 14 screens it would report the same
+name every time — section 1, *Autocapture — what is on*.
 
-Событие шлёт приложение. Автозахват `SCREEN_VIEWS` выключен (раздел 1,
-*Autocapture — что включено*), и включать его нельзя: имя экрана SDK берёт
-из Activity, а все 14 экранов приложения живут в одной Activity, поэтому
-автоматическое событие всегда сообщало бы одно и то же имя. То же решение и
-по той же причине, что выключение автоматического `screen_view` в Firebase.
+The screen name is also needed on the other events: it links the button
+events to an offer (section 4), and on `Application Backgrounded` it shows
+from which screen the person left the app. Amplitude does not put it there
+by itself.
 
-## Имя события: своё, а не из схемы автозахвата
+So the app remembers the current screen. `previous_screen_name` for
+`screen_view` comes from this memory, and our plugin — a standard
+extension point of the SDK — uses it to put `screen_name` on all other
+events. How this works — *Test app solution*, at the end of the section.
 
-Отдельного API для экрана у Amplitude нет — это обычное событие, и имя ему
-выбираем мы. Вариантов два:
+## Event name: our own, not from the autocapture schema
 
-| Вариант | Событие | Свойство |
+Amplitude has no separate API for screens — a screen view is a normal
+event, and we choose its name. There are two options:
+
+| Option | Event | Property |
 |---|---|---|
-| схема автозахвата | `[Amplitude] Screen Viewed` | `[Amplitude] Screen Name` |
-| своё имя | `screen_view` | `screen_name` |
+| autocapture schema | `[Amplitude] Screen Viewed` | `[Amplitude] Screen Name` |
+| our own name | `screen_view` | `screen_name` |
 
-Берём **своё имя**. Имена в квадратных скобках принадлежат SDK: если он
-когда-нибудь начнёт заполнять эти поля сам, его значения и наши окажутся в
-одном определении, и разделить их будет нечем. Довод за схему автозахвата —
-«ручные и автоматические события сольются, если `SCREEN_VIEWS` включат» —
-здесь не работает: автозахват в этом приложении принципиально нерабочий
-(одна Activity), а не отложенный. Тем же свойством `screen_name` плагин из
-раздела 1, шага 8 помечает все остальные события — одно имя на весь проект.
+We take **our own name**. Names in square brackets belong to the SDK: if it
+ever starts filling these fields by itself, its values and ours end up in
+one definition, and nothing can tell them apart. The argument for the
+autocapture schema — "manual and automatic events merge if `SCREEN_VIEWS`
+is switched on" — does not work here: in this app autocapture cannot work
+in principle (one Activity), it is not just postponed. The plugin marks
+all other events with the same `screen_name` property (*Screen name on
+every event* below) — one name for the whole project.
 
-Цена решения: событие не совпадает со схемой Mobile Autocapture и стоит в
-интерфейсе Amplitude как обычное кастомное. Это и есть намерение.
+The cost of the decision: the event does not match the Mobile Autocapture
+schema and appears in the Amplitude UI as a normal custom event. That is
+exactly the intent.
 
 ## Code
 
@@ -581,276 +504,383 @@ amplitude.track(
 )
 ```
 
-Значения в примере — переход со стартового экрана на экран оффера
-`offer_01`. Каждое событие несёт значения своего экрана, см. *Values*.
+The values in the example are a move from the start screen to the offer
+screen of `offer_01`. Every event carries the values of its own screen, see
+*Values*.
 
-`screen_name` ставится в вызове явно, хотя плагин из раздела 1, шага 8
-дописал бы его сам. У события экрана имя известно в момент отправки, и взять
-его из своего вызова надёжнее, чем из памяти, которую к моменту обработки
-события мог перезаписать следующий экран.
+`screen_name` is set explicitly in the call, even though the plugin
+(*Screen name on every event* below) would add it. For the screen event the
+name is known at the moment of sending, and taking it from our own call is
+more reliable.
 
-Констант у имён нет: у Amplitude имя события и имена свойств — обычные
-строки, справочника вроде `FirebaseAnalytics.Event` / `.Param` здесь не
-существует. Один экземпляр `Amplitude` на процесс создаётся в `Application`
-(раздел 1, шаг 5); откуда его берут в месте отправки — решает разработчик.
+On the test screens `screen_view` carries `screen_name` and
+`previous_screen_name`, but **not `current_offer`**: these screens have no
+offer. Whether it can be sent there as `null` —
+[Attachment 2](#attachment-2--open-questions), *A property with no value on
+some screens*.
 
-Аналог `SCREEN_CLASS` из Firebase не шлём: значение описывало бы техническое
-устройство экрана, а не поведение, и при одной Activity было бы у всех
-экранов одинаковым. Разработчик волен добавить, анализу оно не нужно.
-
-На тест-страницах `screen_view` несёт `screen_name` и
-`previous_screen_name`, но **не `current_offer`**. На этих экранах нет
-оффера, и значение было бы либо пустым, либо неверным. Это та же логика, что с `SCREEN_CLASS` выше: свойство без
-осмысленного значения не отправляется. Отсутствие товарного контекста на
-тест-страницах — намеренное, см. Приложение 1, *Тест-страницы*.
-
-Все три свойства — строки.
+All three properties are strings.
 
 ## Values
 
-| Свойство | Откуда значение |
+| Property | Where the value comes from |
 |---|---|
-| `screen_name` | Приложение 1 → *Значения трекинга*, колонка `screen_name` |
-| `previous_screen_name` | Приложение 1 → *Значения трекинга*, колонка `screen_name` — имя экрана, с которого пришли. У первого экрана сессии — `fixed: session_start`. |
-| `current_offer` | Приложение 1 → *Значения трекинга*, колонка `current_offer`. На тест-страницах свойства нет. |
-
-## Предыдущий экран — `previous_screen_name`
-
-Свойство отвечает на вопрос «откуда пришли» простой размерностью: колонкой,
-по которой можно разбить или отфильтровать любой чарт, не строя path-чарт.
-«Сколько просмотров стартового экрана пришло с экрана оффера» — один group
-by в Event Segmentation.
-
-Path-чарты (Journeys, Pathfinder) на тот же вопрос отвечают и без свойства:
-они сшивают события по пользователю внутри сессии, и путь, который
-заканчивается на `screen_view`, показывает, что было перед ним. Но отвечают
-медленнее, хуже кладутся в дашборд, и шаги пути — события, а не экраны,
-поэтому между двумя `screen_view` в пути окажутся и другие события сессии.
-
-В v1 свойство решили не слать: оно стоило бы приложению состояния «текущий
-экран», которого тогда не было. Теперь это состояние нужно в любом случае —
-из него плагин берёт `screen_name` для всех событий (раздел 1, шаг 8), — и
-повод отказываться исчез.
-
-### Что помнит приложение
-
-Одно поле в памяти процесса — **текущий экран**. Отдельно хранить
-предыдущий не нужно: он и есть то, что лежало в этом поле до перехода.
-
-Когда экран становится виден, по порядку, до отправки события:
-
-1. `previous_screen_name` этого события — то, что лежит в «текущем экране».
-   Если поле пусто, значение фиксированное: `session_start`.
-2. «Текущий экран» получает имя нового экрана.
-3. Уходит `screen_view` — оба свойства уже готовы.
-
-Поле пусто в двух случаях: приложение только что запустилось и SDK начал
-новую сессию. На диск оно не сохраняется — после перезапуска приложения
-цепочка начинается заново, иначе первый экран нового запуска получил бы
-предыдущий из прошлого, то есть переход, которого не было.
-
-### Откуда берутся значения
-
-**Первый `screen_view` сессии** — и на холодном старте, и после
-возвращения, которое SDK посчитал новой сессией — несёт
-`previous_screen_name` со значением `session_start`. Это не имя экрана, а
-отметка входа: предыдущего экрана в этой сессии не было.
-
-Границу сессии считает SDK (`minTimeBetweenSessionsMillis`, раздел 1), и
-берём мы её, а не свой таймер: иначе наша цепочка разойдётся с
-`session_id`, по которому чарты режут данные. Признак новой сессии для
-приложения — смена `session_id`.
-
-**Возврат на тот же экран внутри сессии** — из фона, из браузера, из
-скачанного PDF, если человек уложился в таймаут, — даёт
-`previous_screen_name`, равный `screen_name`. Такую петлю оставляем: она
-означает «человек вернулся туда же, откуда уходил», и в чартах отличается
-от перехода между разными экранами. Вернулся позже таймаута — это уже новая
-сессия, и работает правило выше.
-
-### Что теряется на границе сессии
-
-Пока сессия жива, `screen_name` от плагина (раздел 1, шаг 8) стоит на всех
-событиях SDK, включая
-`Application Backgrounded` — то есть страница, с которой человек ушёл из
-приложения, записана. На границе сессии поле очищается, и события, которые
-SDK создаёт в этот момент, — `session_end` закрытой сессии, `session_start`
-и `Application Opened` новой — уходят без `screen_name`.
-
-Это сознательный обмен. Оставить поле жить через границу значило бы
-поставить на `session_start` и `Application Opened` новой сессии имя
-экрана, на котором человек был десять минут назад: формально значение есть,
-по смыслу оно врёт про начало новой сессии. Лучше пустое поле, чем
-неверное. Страница выхода при этом не теряется — она осталась на
-`Application Backgrounded` предыдущей сессии, и по нему её и считать.
-
-Теряется она только там, где `Application Backgrounded` не успевает выйти:
-аварийное завершение и остановка приложения из настроек.
-
-Задним числом свойство не появится: на событиях, собранных до его
-внедрения, его нет.
+| `screen_name` | Attachment 1 → *Tracking values*, column `screen_name` |
+| `previous_screen_name` | Attachment 1 → *Tracking values*, column `screen_name` — the name of the screen the user came from. For the first screen of a session — `fixed: first_screen_in_session`, see *Previous screen* below. |
+| `current_offer` | Attachment 1 → *Tracking values*, column `current_offer`. The property is not present on the test screens. |
 
 ## Trigger
 
-Слать `screen_view` каждый раз, когда экран становится виден пользователю:
+Send `screen_view` every time a screen becomes visible to the user:
 
-- при открытии приложения — стартовый экран;
-- при переходе на экран оффера — из карточки в списке или с кнопки на
-  тест-странице;
-- при переходе по нижней навигации (с любого экрана, включая экран оффера):
-  на домик — стартовый экран, на кнопку «1–5» — `Testseite 1`;
-- при переходе между тест-страницами по кнопкам-ссылкам: `Testseite 1` →
-  `Testseite 3` и т. п. — своё событие на каждую;
-- при **каждом возврате** на экран: назад с оффера, назад в приложение из
-  браузера или из другого приложения.
+- when the app opens — the start screen;
+- on a move to an offer screen — from a card in a list or from a button on
+  a test screen;
+- on a move through the bottom navigation (from any screen, including an
+  offer screen): the house icon — the start screen, the "1–5" button —
+  `Testseite 1`;
+- on a move between test screens with the link buttons: `Testseite 1` →
+  `Testseite 3` and so on — its own event for each;
+- on **every return** to a screen: back from an offer, back into the app
+  from the browser or from another app.
 
-Одно событие на один визит на экран: вернулся — новое событие, даже если
-возврат короткий. Нижняя навигация сама по себе события не порождает: её
-кнопка проверяется тем, что на целевом экране вышел `screen_view`.
+One event per visit to a screen: a return is a new event, even a short
+one. The bottom navigation does not create events by itself: its button is
+checked by the `screen_view` that comes from the target screen.
 
-**Не слать:** на построение экрана, которого пользователь ещё не видит; на
-прокрутку; на поворот экрана и любую другую перерисовку без смены экрана.
+**Do not send:** when a screen is built but the user cannot see it yet; on
+scrolling; on a screen rotation or any other redraw without a change of
+screen.
 
-Поворот — не просмотр: телефон пересоздаёт экран, но пользователь с него не
-уходил и на него не возвращался. Возврат в приложение — просмотр:
-пользователь вернулся сам, и `screen_view` нужен, в том числе когда за
-время в фоне телефон выгрузил приложение из памяти. Как отделить возвраты в
-отчётах — [Приложение 2](#приложение-2--открытые-вопросы), *`screen_view`
-при возврате в приложение*.
+A rotation is not a view: the phone rebuilds the screen, but the user did
+not leave it and did not come back to it. A return to the app is a view:
+the user came back on their own, and `screen_view` is needed, also when the
+phone removed the app from memory while it was in the background. How to
+separate returns in reports —
+[Attachment 2](#attachment-2--open-questions), *`screen_view` on a return
+to the app*.
+
+## Test app solution: where `screen_name` and `previous_screen_name` come from
+
+### What is the requirement and what is the method
+
+This solution was made for the test app. In a real app the developers
+decide how to build it. The job of the concept is that `screen_name` and
+`previous_screen_name` go out with the events with the right values.
+
+Requirement:
+
+- **First screen of a session** — `previous_screen_name` is
+  `first_screen_in_session`.
+- **Return to the same screen** — `previous_screen_name` equals
+  `screen_name`.
+- **Session boundary events** — no `screen_name`.
+
+The method of the test app is one field in memory and a plugin.
+
+### What the app remembers
+
+One field in process memory — the **current screen**. Two properties come
+from it: `previous_screen_name` on `screen_view` and `screen_name` on all
+other events. The previous screen does not need to be stored separately:
+it is what was in this field before the move.
+
+When a screen becomes visible, in this order, before the event is sent:
+
+1. `previous_screen_name` of this event is what is in the "current screen".
+   If the field is empty, the value is fixed: `first_screen_in_session`.
+2. The "current screen" gets the name of the new screen.
+3. `screen_view` goes out — both properties are ready.
+
+The field is empty in two cases:
+
+1. **The app started again** — the first launch, or a launch after the
+   app process was ended. The field lives in process memory and is not
+   saved to disk: otherwise the first screen of a new launch would get the
+   previous screen from the last launch, that is, a move that never
+   happened.
+2. **The SDK started a new session while the app is alive** — the person
+   came back after a pause longer than `minTimeBetweenSessionsMillis`
+   (section 1). The app learns about the new session from the change of
+   `session_id` and clears the field. We take the boundary from the SDK and
+   do not count it with our own timer: otherwise our chain would drift away
+   from the `session_id` that charts use to cut the data.
+
+### Previous screen — `previous_screen_name`
+
+**The first `screen_view` of a session** — both on a cold start and after
+a return that the SDK counted as a new session — carries
+`previous_screen_name` with the value `first_screen_in_session`. This is
+not a screen name but an entry mark: there was no previous screen in this
+session. The value is different from the name of the SDK event
+`session_start` on purpose, so that the two are not mixed up in charts.
+
+**A return to the same screen within a session** — from the background,
+from the browser, from the downloaded PDF, if the person came back within
+the timeout — gives `previous_screen_name` equal to `screen_name`. We keep
+this loop: it means "the person came back to where they left from", and in
+charts it differs from a move between different screens. A return after
+the timeout is already a new session, and the rule above applies.
+
+### Screen name on every event — the `screen_name` plugin
+
+Amplitude does not remember which screen the user is on. Every event
+carries exactly the properties that were put into it; the screen name is
+not added to the following events by itself. This is a difference from
+GA4, where `firebase_screen` is added to all events automatically.
+
+So the screen name is set by a plugin. A plugin here is an extension point
+of the SDK itself, not a third-party library: the path of an event before
+it is sent is a pipeline of stages (`Before` → `Enrichment` →
+`Destination`), and `amplitude.add(...)` inserts our object into it. Then
+every event passes through its `execute` method, where `screen_name` from
+the "current screen" is added to the properties.
+
+```kotlin
+class ScreenNamePlugin : Plugin {
+    override lateinit var amplitude: Amplitude
+    override val type = Plugin.Type.Enrichment
+
+    override fun execute(event: BaseEvent): BaseEvent {
+        val screenName = CurrentScreen.nameFor(event.sessionId) ?: return event
+        val properties = event.eventProperties ?: mutableMapOf()
+        if (!properties.containsKey("screen_name")) {
+            properties["screen_name"] = screenName
+            event.eventProperties = properties
+        }
+        return event
+    }
+
+    override fun onSessionIdChanged(sessionId: Long) = CurrentScreen.forget()
+}
+```
+
+`CurrentScreen` is the "current screen". `nameFor` returns it only if it
+was written in the same session as the event; otherwise it returns
+nothing, and the event goes out without the property, not with an empty
+value. `onSessionIdChanged` is called by the SDK itself when it starts a
+new session — this is where the field is cleared (*What the app
+remembers*, the second case).
+
+The plugin is added right after the instance is created, in the same place
+as Session Replay (section 1, step 6):
+
+```kotlin
+amplitude.add(ScreenNamePlugin())
+```
+
+**What gets the property.** Everything that happens while the person is on
+a screen: app events, `Application Backgrounded`, `Deep Link Opened`,
+`Application Opened` on a return within the session.
+
+**What does not get it.** The events of a cold start and of a session
+boundary: `Application Installed`, `session_start`, `session_end` and the
+first `Application Opened` of a launch or of a new session. At these
+moments the "current screen" is empty. No empty value is put in: the
+property is simply missing. Why, and what is lost with this — *What is lost
+at the session boundary* below.
+
+The property name is our own, `screen_name`, not `[Amplitude] Screen Name`
+— for the reason see *Event name: our own, not from the autocapture schema*
+above.
+
+### What is lost at the session boundary
+
+While the session is alive, `screen_name` from the plugin is on all SDK
+events, including `Application Backgrounded` — so the page the person left
+the app from is recorded. At the session boundary the field is cleared,
+and the events that the SDK creates at that moment — `session_end` of the
+closed session, `session_start` and `Application Opened` of the new one —
+go out without `screen_name`.
+
+This is a trade-off we chose. Keeping the field alive across the boundary
+would put on `session_start` and `Application Opened` of the new session
+the name of the screen the person was on ten minutes ago: formally there is
+a value, but in meaning it lies about the start of the new session. An
+empty field is better than a wrong one. The exit page is not lost: it
+stays on `Application Backgrounded` of the previous session, and that is
+where to count it.
+
+It is lost only where `Application Backgrounded` has no time to go out: a
+crash, and a stop of the app from the settings.
 
 ---
 
-# 4. E-commerce события
+# 4. E-commerce events
 
-Статус: **в работе.** Цепочка `view_item_list` → `begin_checkout` и четыре
-события кнопок встроены и проверены на эмуляторе 2026-09-07 и 2026-09-09
-(`implementation-notes.md`, *E-commerce events*). Подраздел *DA — настройка
-в Amplitude* — не сделано.
-
-Описывает цепочку `view_item_list` → `select_item` → `view_item` →
-`begin_checkout`, контекст, который едет по ней от списка до целевого
-действия, и четыре события кнопок на экране оффера — `generate_code`,
-`copy_code`, `go_to_shop`, `download_coupon`.
-
-Свойство категории (`item_category`) в раздел пока не входит.
+Status: **done.** The chain `view_item_list` → `begin_checkout` and the four
+button events are built and were checked on an emulator on 2026-09-07,
+2026-09-09 and — with the flat schema — on 2026-09-10
+(`implementation-notes.md`, *E-commerce events* and *Flat e-commerce
+properties*). The reports from the subsection *DA — setup in Amplitude*
+were built on the data of the run on 2026-09-10.
 
 ## Why
 
-Хотим знать, что дают списки офферов. Два вопроса, ради которых собирается
-вся цепочка:
+We want to know what the offer lists bring. There are two questions the
+whole chain `view_item_list` → `select_item` → `view_item` →
+`begin_checkout` is collected for:
 
-- **лист → результат:** сколько раз лист показали, сколько кликов по
-  карточкам он собрал и сколько целевых действий случилось у офферов,
-  открытых из него;
-- **оффер → источник:** для конкретного оффера — из каких листов приходят
-  его целевые действия.
+- **list → result:** how many times the list was shown, how many card
+  clicks it got, and how many target actions happened on the offers
+  opened from it;
+- **offer → source:** for one offer — from which lists its target actions
+  come.
 
-Второй вопрос требует, чтобы источник ехал вместе с оффером до самого
-целевого действия: в момент нажатия «Zum Shop» пользователь уже давно не в
-списке. Как это устроено — *`attribution_context`* ниже.
+The second question needs the source to travel with the offer all the way
+to the target action: when the user taps "Zum Shop", they left the list
+long ago. How this works — *`attribution_context`* below.
 
-Рядом с цепочкой стоят **четыре события кнопок** — по одному на каждую
-кнопку экрана оффера. Они отвечают на другой вопрос: что человек делает
-внутри оффера и в каком порядке — сгенерировал код, скопировал его, ушёл в
-магазин, скачал купон. Товарных свойств они не несут; оффер у них читается
-из `screen_name`, который плагин ставит на каждое событие (раздел 1,
-шаг 8).
+Next to the chain there are **four button events** — `generate_code`,
+`copy_code`, `go_to_shop`, `download_coupon`, one for each button on the
+offer screen. They answer a different question: what the person does
+inside the offer and in which order — generated the code, copied it, went
+to the shop, downloaded the coupon. They carry no item properties; their
+offer is read from `screen_name`, which the plugin puts on every event
+(section 3, *Screen name on every event*).
 
-Amplitude ничего из этого сам не собирает, и зарезервированных
-ecommerce-имён у него нет: все имена здесь наши, взяты с ветки Firebase —
-*Обзор*, *Архитектура данных повторяет ветку Firebase*.
+Amplitude collects none of this by itself, and it has no reserved
+e-commerce names: all names here are ours, taken from the Firebase
+branch — *Overview*, *The data architecture repeats the Firebase branch*.
 
-## Почему `begin_checkout` — целевое действие
+## Why `begin_checkout` is the target action
 
-В Firebase у этого решения было техническое основание: массив `items`
-принимают только зарезервированные ecommerce-события, на кастомном событии
-Firebase выбрасывает массив с ошибкой. Поэтому оба целевых нажатия — «Zum
-Shop» и «Download» — там сливаются в один `begin_checkout` с товаром, а
-кнопки отправляют отдельные события без товарных свойств.
+In Firebase this decision had a technical reason: only reserved e-commerce
+events accept the `items` array; on a custom event Firebase drops the
+array with an error. So there both target taps — "Zum Shop" and
+"Download" — merge into one `begin_checkout` with the item, and the buttons
+send separate events without item properties.
 
-В Amplitude этого ограничения нет: массив кладётся на событие с любым
-именем, и `go_to_shop` с `download_coupon` могли бы нести товар сами, а
-`begin_checkout` был бы не нужен. Мы всё равно повторяем схему Firebase —
-чтобы воронки двух веток складывались из одних и тех же событий и были
-сравнимы. Это единственная причина; см. *Обзор*, *Архитектура данных
-повторяет ветку Firebase*.
+Amplitude does not have this limit: item properties can go on an event
+with any name, so `go_to_shop` and `download_coupon` could carry the item
+themselves, and `begin_checkout` would not be needed. We still repeat the
+Firebase schema — so that the funnels of the two branches are built from
+the same events and can be compared. This is the only reason; see
+*Overview*, *The data architecture repeats the Firebase branch*.
 
-Имя не буквальное: в приложении нет ни корзины, ни оплаты. Воронка checkout
-переиспользована под воронку купона. **До запуска на настоящем приложении
-это надо проговорить внутри компании:** выигрыш — готовая воронка и
-товарные отчёты, цена — «checkout» в отчётах означает «ушёл в магазин или
-скачал купон».
+## Data shape: flat event properties
 
-## Форма данных: массив объектов `items`
+All four events of the chain have the same structure: both the list
+properties — `item_list_id`, `item_list_name` — and the offer properties —
+`item_id`, `item_name`, `item_brand`, `coupon`, `index` — sit **directly
+on the event**. None of the four has the `items` array that is standard in
+GA4 and in the Firebase branch.
 
-Все четыре события устроены одинаково:
+`view_item_list` is sent **for every card of the list**: a flat event
+carries one offer, and there is no other way to keep the per-item
+breakdown of impressions. The start screen gives ten events — four for
+Highlights and six for Neustarter. `select_item`, `view_item` and
+`begin_checkout` have only one offer anyway, so the flat shape does not
+change the number of these events.
 
-- свойства листа — `item_list_id`, `item_list_name` — на уровне события;
-- свойства оффера — в объектах массива `items`: `item_id`, `item_name`,
-  `item_brand`, `coupon`, `index`.
+**Why not an array — the project plan.** Amplitude accepts and stores an
+array of objects, but it can split it into child fields only with
+**property splitting** switched on, and that is available on plans above
+`starter_v4`, the plan of this project. Without it `items` is not a
+dimension: you cannot group by it, filter by it or hold it constant in a
+funnel. Checked with queries on 2026-09-09: a segmentation of `view_item`
+grouped by `item_id` puts all events into `(none)`, and a funnel can only
+be built as "any list → any checkout". A flat property gives all of this
+without a single project setting.
 
-На `view_item_list` в массиве столько объектов, сколько карточек в листе
-(четыре или шесть). На остальных трёх — ровно один: оффер, о котором
-событие.
+We do not keep an array next to the flat copies "for the future" either: a
+property that is only stored but not used in analysis is not needed in the
+schema, and a second source of truth drifts away from the first one over
+time.
 
-**Почему массив, а не событие на каждую карточку.** Событие на карточку
-дало бы десять событий на каждый показ стартового экрана вместо двух —
-пятикратная разница на самом частом экране, а события это деньги. Кроме
-того, массива ждут готовые инструменты Amplitude: хабы *Purchase by
-Product* и *Product Discovery* работают только с ним, а item-level
-attribution опознаёт товар по `items.item_id`.
+**This is done to have working reports on this plan, not because it is
+more correct.** In an enterprise setup the item travels as an array of
+objects and is split by splitting — this is how the Firebase branch works
+and how the previous version of the app worked. When to go back to the
+array — Attachment 2, *The `items` array: when to go back to it*.
 
-**Чем платим.** Показ считается на уровне листа, а не карточки: CTR
-отдельной карточки по таким данным не построить. И массив в чартах не
-виден, пока не включено property splitting — см. *DA — настройка в
-Amplitude*.
+**Why the list properties kept their names.** `item_list_id` /
+`item_list_name` are at event level in the GA4 schema too — they just
+ended up in one row with the item properties. The names are kept from the
+Firebase branch.
 
-**Почему свойства листа не внутри объектов.** По ним группируются оба
-отчёта из *Why*, а дочернее свойство тянет за собой семантику cart
-analysis, которая здесь не нужна. На `view_item_list` все объекты и так из
-одного листа — дублировать значение в каждом незачем.
+## What the flat schema costs
 
-## `attribution_context` — как источник доезжает до целевого действия
+Flat properties are a trade-off, not an improvement. The cost is:
 
-Приложение хранит **один** `attribution_context` — источник, из которого
-открыт текущий оффер:
+1. **A difference from GA4 and from the Firebase branch.** The `items`
+   array is the standard GA4 schema, and the Firebase branch stays on it. The difference is described in the *Overview* and in the branch README — otherwise a reader of both branches will think it is a bug.
+2. **Ready-made Amplitude tools.** The *Purchase by Product* and *Product
+   Discovery* hubs and item-level attribution expect the array; flat
+   properties are invisible to them. A conscious trade: without splitting
+   they would not work anyway.
+3. **Five times more events on the start screen.** Ten events per view
+   instead of two, on the most frequent screen of the app. For the test app
+   this does not matter — the organisation quota is 2 million events a
+   month. For a real app this is money. What it buys is the per-item
+   breakdown of impressions: without an event per card, the table "card
+   impressions → selections → checkouts" cannot be built.
+4. **The meaning of `view_item_list` has shifted.** An event per card reads
+   as "the card was shown", although scrolling is not tracked and the user
+   may not have reached the lower cards — Attachment 2, *`view_item_list`
+   and the cards really seen*.
 
+## Test app solution: how the source reaches the target action
+
+### What is the requirement and what is the method
+
+This solution was made for the test app. In a real app the developers
+decide how to build it. The job of the concept is that `view_item` and
+`begin_checkout` go out with the right properties.
+
+Requirement:
+- **Offer properties** — always.
+- **List properties** (`item_list_id`, `item_list_name`, `index`) — only if
+  the last `select_item` was for this same offer. The list is taken from
+  that `select_item`.
+- **The list changes only with the next `select_item`.** Going back, the
+  bottom navigation, a test screen and leaving for the browser do not
+  change it.
+
+The method of the test app is one `attribution_context` variable in
+memory.
+
+### What the app remembers — `attribution_context`
+
+The app keeps **one** `attribution_context` — the source the current offer
+was opened from:
 ```text
-attribution_context = { item_list_id, item_list_name, items[0] }
+attribution_context = { item_list_id, item_list_name, index, offer properties }
 ```
+One variable is enough because only one offer is open in the app at a
+time.
 
-Одной переменной достаточно, потому что в приложении одновременно открыт только
-один оффер. 
+Rules:
 
-Правила:
+- **Written** on `select_item`, at the moment an offer is chosen from a
+  list. It gets exactly what went into the event.
+- **Overwritten** on every next real choice of an offer: another card, the
+  same offer from another list, the same offer chosen again.
+- **Not changed** by going back, a move through the bottom navigation, a
+  walk through a test screen, leaving for the browser and coming back to
+  the app: the user did not choose anything.
+- **Lives** until it is overwritten or until the app restarts.
 
-- **Пишется** при `select_item`, в момент выбора оффера из листа. Кладётся
-  ровно то, что ушло в событии.
-- **Перезаписывается** при каждом следующем фактическом выборе оффера:
-  другая карточка, тот же оффер из другого листа, повторный выбор того же.
-- **Не меняется** от возврата назад, перехода по нижней навигации, прохода через тест-страницу, ухода в
-  браузер и возврата в приложение: пользователь ничего не выбирал.
-- **Живёт** до перезаписи или до перезапуска приложения.
+### When an event has no list
 
-Если контекста нет или он относится к другому офферу — так бывает после
-перезапуска приложения, — `view_item` и `begin_checkout` несут свойства
-оффера, открытого на экране, и не несут свойств листа. Оффер известен
-всегда, лист — не всегда; событие без оффера не отправляется никогда.
+If there is no context, or it belongs to another offer — this happens after
+an app restart — `view_item` and `begin_checkout` carry the properties of
+the offer open on the screen and no list properties. The offer is always
+known, the list is not; an event without an offer is never sent.
 
 ## Code
 
-Все блоки заполнены значениями одного примера: оффер `offer_01`, Fitwerk,
-лист Highlights, `index` `0`. Каждое событие несёт значения своего оффера и
-своего листа, см. *Values*.
+All blocks are filled with the values of one example: offer `offer_01`,
+Fitwerk, list Highlights, `index` `0`. Every event carries the values of
+its own offer and its own list, see *Values*.
 
-Типы: `index` — число, остальные свойства — строки. `items` — список
-объектов с ровно одним уровнем вложенности: внутри объекта только скаляры,
-не вложенный массив и не вложенный объект.
+Types: `index` is a number, all other properties are strings. There is no
+nesting: the event is a flat set of scalars.
 
 ### `view_item_list`
 
-Одно событие на лист. На стартовом экране их два: Highlights с четырьмя
-объектами и Neustarter с шестью.
+One event per card. On the start screen there are ten: four for Highlights
+and six for Neustarter.
 
 ```kotlin
 amplitude.track(
@@ -858,24 +888,22 @@ amplitude.track(
     mapOf(
         "item_list_id" to "home_highlights",
         "item_list_name" to "Highlights",
-        "items" to listOf(
-            mapOf(
-                "item_id" to "offer_01",
-                "item_name" to "Fitwerk",
-                "item_brand" to "Fitwerk",
-                "coupon" to "20 % auf alle Sportschuhe",
-                "index" to 0,
-            ),
-            // то же для offer_02 (index 1), offer_03 (2), offer_04 (3)
-        ),
+        "item_id" to "offer_01",
+        "item_name" to "Fitwerk",
+        "item_brand" to "Fitwerk",
+        "coupon" to "20 % auf alle Sportschuhe",
+        "index" to 0,
     )
 )
 ```
 
+The events for `offer_02` (`index` 1), `offer_03` (2), `offer_04` (3) and
+the six events for the Neustarter list go out the same way.
+
 ### `select_item`
 
-Массив из одного объекта — нажатая карточка. Этот же набор значений
-сохраняется в `attribution_context`.
+The properties of the tapped card. The same set of values is saved in
+`attribution_context`.
 
 ```kotlin
 amplitude.track(
@@ -883,281 +911,305 @@ amplitude.track(
     mapOf(
         "item_list_id" to "home_highlights",
         "item_list_name" to "Highlights",
-        "items" to listOf(
-            mapOf(
-                "item_id" to "offer_01",
-                "item_name" to "Fitwerk",
-                "item_brand" to "Fitwerk",
-                "coupon" to "20 % auf alle Sportschuhe",
-                "index" to 0,
-            ),
-        ),
+        "item_id" to "offer_01",
+        "item_name" to "Fitwerk",
+        "item_brand" to "Fitwerk",
+        "coupon" to "20 % auf alle Sportschuhe",
+        "index" to 0,
     )
 )
 ```
 
 ### `view_item`
 
-Те же свойства, что у `select_item`, взятые из сохранённого
+The same properties as in `select_item`, taken from the saved
 `attribution_context`:
 
 ```kotlin
-amplitude.track("view_item", /* тот же map, что в select_item */)
+amplitude.track("view_item", /* the same map as in select_item */)
 ```
 
-У оффера, который открыли с тест-страницы и до этого не выбирали в листе,
-листа нет — тогда событие несёт только массив, а в объекте нет `index`:
-позиция описывает место в листе, которого не было. Если тот же оффер до
-этого выбрали в листе, лист остаётся: проход через тест-страницу выбора не
-отменяет, см. *`attribution_context`*.
+An offer that was opened from a test screen and was not chosen in a list
+before has no list — then the event carries only the offer properties,
+without `index`: the position describes a place in a list, and there was
+no list. If the same offer was chosen in a list before, the list stays: a
+walk through a test screen does not cancel the choice, see
+*`attribution_context`*.
 
 ```kotlin
 amplitude.track(
     "view_item",
     mapOf(
-        "items" to listOf(
-            mapOf(
-                "item_id" to "offer_01",
-                "item_name" to "Fitwerk",
-                "item_brand" to "Fitwerk",
-                "coupon" to "20 % auf alle Sportschuhe",
-            ),
-        ),
+        "item_id" to "offer_01",
+        "item_name" to "Fitwerk",
+        "item_brand" to "Fitwerk",
+        "coupon" to "20 % auf alle Sportschuhe",
     )
 )
 ```
 
 ### `begin_checkout`
 
-Тот же набор свойств, что ушёл в `view_item` этого открытия, из того же
-`attribution_context`. Ни кнопки, ни других свойств событие не несёт: оно
-говорит только, что на этом оффере случилось целевое действие.
+The same set of properties that went into the `view_item` of this opening,
+from the same `attribution_context`. The event carries neither the button
+nor any other property: it only says that a target action happened on this
+offer.
 
 ```kotlin
-amplitude.track("begin_checkout", /* тот же map, что в view_item */)
+amplitude.track("begin_checkout", /* the same map as in view_item */)
 ```
 
-### Четыре события кнопок
+### The four button events
 
-По одному событию на кнопку экрана оффера. Товарных свойств не несут —
-оффер читается из `screen_name`, который ставит плагин (раздел 1, шаг 8).
+One event per button on the offer screen. They carry no item properties —
+the offer is read from `screen_name`, which the plugin sets (section 3,
+*Screen name on every event*).
 
-| Событие | Кнопка | Свойство |
+| Event | Button | Property |
 |---|---|---|
-| `generate_code` | «Gutschein generieren» | нет |
-| `copy_code` | «Kopieren» | нет |
-| `go_to_shop` | «Zum Shop» | `code_copied` |
-| `download_coupon` | «Download» | нет |
+| `generate_code` | "Gutschein generieren" | none |
+| `copy_code` | "Kopieren" | none |
+| `go_to_shop` | "Zum Shop" | `code_copied` |
+| `download_coupon` | "Download" | none |
 
 ```kotlin
 amplitude.track("generate_code")
 amplitude.track("copy_code")
 amplitude.track("download_coupon")
-
 amplitude.track("go_to_shop", mapOf("code_copied" to "yes"))
 ```
 
-Нажатие «Zum Shop» даёт два события — `go_to_shop` и `begin_checkout`.
-Нажатие «Download» тоже два — `download_coupon` и `begin_checkout`. Первое
-говорит, какую кнопку нажали, второе — что на этом оффере случилось целевое
-действие, и несёт товар.
+A tap on "Zum Shop" gives two events — `go_to_shop` and `begin_checkout`.
+A tap on "Download" also gives two — `download_coupon` and
+`begin_checkout`. The first says which button was tapped; the second says
+that a target action happened on this offer and carries the item.
 
-**`code_copied`** — свойство только у `go_to_shop`. Отвечает на один
-вопрос: унёс ли человек код с собой в магазин.
+**`code_copied`** — a property of `go_to_shop` only. It answers one
+question: did the person take the code with them to the shop?
 
-Значение `no` ставится **каждый раз, когда открывают экран оффера**, и
-меняется на `yes`, если на этом посещении экрана до click-out нажали
-«Kopieren». Это то же состояние на одно посещение, что и цвет нажатой
-кнопки (Приложение 1, *Поведение*).
+The value `no` is set **every time the offer screen is opened**, and it
+changes to `yes` if "Kopieren" was tapped on this visit to the screen
+before the click-out. This is the same per-visit state as the colour of a
+tapped button (Attachment 1, *Behaviour*).
 
-Значения — строки `yes` / `no`, а не булево. Amplitude принял бы булево, в
-отличие от Firebase, где булевого типа свойства нет; строки оставлены,
-чтобы значение в отчётах двух веток читалось одинаково.
+The values are the strings `yes` / `no`, not a boolean. Amplitude would
+accept a boolean, unlike Firebase, which has no boolean property type; the
+strings are kept so that the value reads the same in the reports of both
+branches.
 
 ## Values
 
-| Свойство | Откуда значение |
+| Property | Where the value comes from |
 |---|---|
-| `item_list_id` | Приложение 1 → *Списки офферов*, колонка `item_list_id` |
-| `item_list_name` | Приложение 1 → *Списки офферов*, колонка `item_list_name` |
-| `items[].item_id` | Приложение 1 → *Офферы и категории*, колонка «ID оффера» |
-| `items[].item_name` | там же, колонка «Магазин» |
-| `items[].item_brand` | то же значение, что у `item_name` |
-| `items[].coupon` | Приложение 1 → *Офферы и категории*, колонка «Заголовок (`current_offer`)» |
-| `items[].index` | Приложение 1 → *Списки офферов*, таблица позиций |
-| `code_copied` | `fixed: yes` / `fixed: no` — состояние посещения экрана оффера, см. *Четыре события кнопок* |
+| `item_list_id` | Attachment 1 → *Offer lists*, column `item_list_id` |
+| `item_list_name` | Attachment 1 → *Offer lists*, column `item_list_name` |
+| `item_id` | Attachment 1 → *Offers and categories*, column "Offer ID" |
+| `item_name` | same table, column "Shop" |
+| `item_brand` | the same value as `item_name` |
+| `coupon` | Attachment 1 → *Offers and categories*, column "Title (`current_offer`)" |
+| `index` | Attachment 1 → *Offer lists*, position table |
+| `code_copied` | `fixed: yes` / `fixed: no` — the state of the visit to the offer screen, see *The four button events* |
 
-Свойств листа и `index` нет на событиях оффера, открытого с тест-страницы —
-см. *`attribution_context`*.
-
-`item_name` и `item_brand` несут одно и то же значение. У оффера в этом
-приложении нет собственного названия: карточку опознают по магазину.
-Значение сохранено с ветки Firebase, где это две стандартные размерности;
-разъедутся они в тот день, когда у оффера появится своё имя.
+The events of an offer opened from a test screen have no list properties
+and no `index` — see *`attribution_context`*.
 
 ## Trigger
 
-**`view_item_list`** — когда список становится виден: вместе со
-`screen_view` стартового экрана, по событию на каждый из двух листов.
-Считается каждый показ стартового экрана — первый, возврат с оффера,
-переход по нижней навигации, возврат в приложение из браузера.
+**`view_item_list`** — when the list becomes visible: together with the
+`screen_view` of the start screen, one event **per card** of each of the
+two lists — ten events per view. Every view of the start screen counts —
+the first one, a return from an offer, a move through the bottom
+navigation, a return to the app from the browser.
 
-Не слать: на прокрутку до второго блока (оба события уже ушли), на поворот
-экрана, на перерисовку без смены экрана. Событие говорит, что лист был на
-экране, а не что пользователь дошёл глазами до всех карточек — Приложение 2,
-*`view_item_list` и реально увиденные карточки*.
+Do not send: on scrolling to the second block (all ten events have already
+gone out), on a screen rotation, on a redraw without a change of screen.
+The event says that the card was in the list on the open screen, not that
+the user scrolled down to it — Attachment 2, *`view_item_list` and the
+cards really seen*.
 
-**`select_item`** — нажатие **«Zum Angebot»** в карточке. Одно событие на
-нажатие, с оффером и листом той карточки, которую нажали.
+**`select_item`** — a tap on **"Zum Angebot"** in a card. One event per
+tap, with the offer and the list of the card that was tapped.
 
-Не слать: при переходе на оффер кнопкой с тест-страницы (листа нет) и при
-переходе по нижней навигации.
+Do not send: on a move to an offer with a button on a test screen (there
+is no list).
 
-**`view_item`** — сразу за `screen_view` экрана оффера, ровно одно на одно
-открытие экрана. Шлём при любом входе на экран оффера, включая вход с
-тест-страницы.
+**`view_item`** — right after the `screen_view` of the offer screen,
+exactly one per opening of the screen. Send it on any entry to the offer
+screen, including an entry from a test screen.
 
-Не слать: на возврат из браузера, на возврат в приложение, на системный
-диалог поверх экрана. В этих случаях `screen_view` уходит заново (раздел 3),
-а `view_item` — нет: открытие то же самое. На поворот экрана не уходит и
-`screen_view`, тем более не уходит `view_item`: экран пересобран, но
-пользователь с него не уходил.
+Do not send: on a return from the browser, on a return to the app, on a
+system dialog over the screen. In these cases `screen_view` goes out again
+(section 3), but `view_item` does not: it is the same opening. On a screen
+rotation even `screen_view` does not go out, so `view_item` does not
+either: the screen is rebuilt, but the user did not leave it.
 
-Повторное нажатие на ту же карточку в списке — не возврат, а новое
-открытие: снова `select_item`, `screen_view` и `view_item`.
+A second tap on the same card in the list is not a return but a new
+opening: again `select_item`, `screen_view` and `view_item`.
 
-**`begin_checkout`** — нажатие **«Zum Shop»** или **«Download»**, в момент
-нажатия и **до** побочного эффекта. Браузер может не открыться, а файл не
-сохраниться — это техника, а не поведение пользователя. Одно событие на
-нажатие: два нажатия «Zum Shop» подряд дают два события.
+**`begin_checkout`** — a tap on **"Zum Shop"** or **"Download"**, at the
+moment of the tap and **before** the side effect. The browser may fail to
+open and the file may fail to save — that is technology, not user
+behaviour. One event per tap: two taps on "Zum Shop" in a row give two
+events.
 
-Не слать: на **«Gutschein generieren»** и **«Kopieren»** — с ними
-пользователь остаётся на оффере; на результат действия — открывшийся
-браузер, сохранённый файл.
+Do not send: on **"Gutschein generieren"** and **"Kopieren"** — with them
+the user stays on the offer; on the result of the action — the opened
+browser, the saved file.
 
-**Четыре события кнопок** — в момент нажатия своей кнопки и **до**
-побочного эффекта, ровно как `begin_checkout`. Одно событие на нажатие:
-два нажатия «Kopieren» подряд дают два `copy_code`.
+**The four button events** — at the moment of the tap on their button and
+**before** the side effect, exactly like `begin_checkout`. One event per
+tap: two taps on "Kopieren" in a row give two `copy_code`.
 
-Не слать: на результат действия — показанный код, скопированный текст,
-открывшийся браузер, сохранённый файл; на повторный показ экрана, если
-кнопку не нажимали.
+Do not send: on the result of the action — the shown code, the copied
+text, the opened browser, the saved file; on a repeated view of the screen
+if the button was not tapped.
 
-## DA — настройка в Amplitude
+## DA — setup in Amplitude
 
-Это для аналитика, не для разработчика. Статус: **не сделано.**
+This part is for the analyst, not for the developer. Status: **done**
+(checked on 2026-09-10, `implementation-notes.md`).
 
-Регистрировать свойства, как в GA4, здесь не нужно: Amplitude заводит их
-сам, как только придёт первое событие. Настроить надо другое.
+There is nothing to set up in the project. Amplitude creates the properties
+by itself as soon as the first event arrives, and a flat property works as
+a dimension out of the box: group by, filters and hold constant are
+available on it without a single setting. Property splitting does not need
+to be switched on and cannot be — the `starter_v4` plan does not have it
+(*Data shape*).
 
-1. **Property splitting для `items`.** Без него массив приходит, хранится и
-   виден в списке свойств с меткой `{:}`, но разложить чарт по `item_id`
-   или `item_list_id` нельзя. Включается на свойстве в разделе управления
-   данными проекта.
-2. **Проверить hold constant по `items.item_id`** на первых пришедших
-   событиях. На нём держится воронка раздела 4, и в документации этот
-   случай не описан — Приложение 2, *Hold constant по дочернему свойству*.
-   Там же запасной ход, если окажется, что нельзя.
-3. **Проверить, что четыре события кнопок пришли с `screen_name`.** Он
-   приходит от плагина (раздел 1, шаг 8), и без него у этих событий нет
-   привязки к офферу.
+Check on the first events that arrive:
+
+1. **Funnel `view_item_list` → `select_item` → `view_item` →
+   `begin_checkout` with hold constant on `item_id`.** The answer to
+   "offer → source" from *Why* depends on it.
+2. **Group by `item_id` and by `item_list_id`** on each of the four events —
+   values, not `(none)`.
+3. **Table "card impressions → selections → checkouts"** broken down by
+   `item_id`. The schema was made flat for this table.
+4. **`screen_name` on the four button events.** It comes from the plugin
+   (section 3, *Screen name on every event*), and without it these events
+   have no link to an offer.
+
 
 ---
 
-# Приложение 1 — описание приложения
+# Attachment 1 — App description
 
-Описывает само приложение и хранит каждое значение, которое использует
-трекинг. Разделы выше ссылаются сюда и не повторяют значения.
+## Purpose
 
-## Назначение
+**Angebote** is a prototype. The goal: the smallest app on which mobile
+tracking can be set up and measured.
 
-**Angebote** — прототип. Цель: наименьшее приложение, на котором можно
-настроить и измерить мобильный трекинг.
+The app is not a product. It is not published on Google Play, but it is
+built as a normal installable app. The user interface is in German. The
+shops and offers are invented and do not refer to real companies.
 
-Приложение не продукт. В Google Play оно не опубликовано, но собрано как
-обычное устанавливаемое приложение. Интерфейс на немецком. Магазины и
-офферы выдуманы и не отсылают к реальным компаниям.
+## Screens
 
-## Экраны
+Three screen types, 14 screens in total: the start screen, one screen for
+each of the eight offers, and five test screens. The bottom navigation is
+visible on all of them — see *Behaviour*.
 
-Три типа экранов, всего 14: стартовый экран, по экрану на каждый из восьми
-офферов и пять тест-страниц.
-
-| Стартовый экран | Экран оффера |
+| Start screen | Offer screen |
 |:---:|:---:|
-| <img src="./start-screen.png" width="500" alt="стартовый экран"> | <img src="./offer-screen.png" width="500" alt="экран оффера"> |
+| <img src="./start-screen.png" width="500" alt="start screen"> | <img src="./offer-screen.png" width="500" alt="offer screen"> |
 
-Снимки — от v1 (один список, четыре оффера). Устройство экранов в v2 то же,
-меняется состав: два блока на стартовом, восемь экранов офферов.
+The offer screen is shown after "Gutschein generieren" and "Kopieren" were
+tapped: the code is visible, and both buttons are grey.
 
-**Нижняя навигация.** Полоска внизу экрана с двумя кнопками: домик — ведёт
-на стартовый экран, **«1–5»** — на `Testseite 1`. Показывается на всех
-экранах, включая экран оффера: это единственный способ уйти со всех экранов
-на стартовый (плюс системная кнопка «назад»).
+**Start screen.** The screen title is **Angebote**. Two offer blocks, one
+under the other — to measure the tracking of two lists. The order is
+fixed, with no sorting and no filters:
 
-**Стартовый экран.** Заголовок экрана — **Angebote**. Два блока офферов
-друг под другом, порядок фиксированный, ни сортировки, ни фильтров:
+- **Highlights** — the first block, four offers;
+- **Neustarter** — the second block, six offers.
 
-- **Highlights** — первый блок, четыре оффера;
-- **Neustarter** — второй блок, шесть офферов.
+The names `Highlights` and `Neustarter` are visible on the screen as block
+subtitles. Each offer is a card: shop, title, teaser and a
+**"Zum Angebot"** button that opens the offer screen. For testing, Fitwerk
+and Kaffeekontor are in both blocks — see *Tracking values*, *Offer
+lists*.
 
-Названия `Highlights` и `Neustarter` видны на экране как подзаголовки
-блоков. Каждый оффер — карточка: магазин, заголовок, тизер и кнопка
-**«Zum Angebot»**, открывающая экран оффера. Fitwerk и Kaffeekontor стоят в
-обоих блоках — см. *Значения трекинга*, *Списки офферов*.
+**Offer screen.** Eight screens, one per offer, all built the same way.
+Content from top to bottom:
 
-**Экран оффера.** Восемь экранов, по одному на оффер, все устроены
-одинаково. Уход с экрана — нижней навигацией или системной кнопкой «назад»;
-своей кнопки «назад» на экране нет. Содержимое сверху вниз:
-
-| Элемент | Поведение |
+| Element | Behaviour |
 |---|---|
-| Текст оффера | 2–3 абзаца с условиями. Статичный. |
-| Кнопка **«Gutschein generieren»** | Показывает код `654-321` и под ним кнопку «Kopieren». |
-| Кнопка **«Kopieren»** | Копирует код в буфер обмена, показывает короткое сообщение. |
-| Кнопка **«Zum Shop»** | Click-out. Открывает `https://www.google.de` во внешнем браузере. |
-| Текст **«Oder Gutschein für die Filiale herunterladen»** | Статичный. |
-| Кнопка **«Download»** | Собирает PDF-купон и сохраняет его в папку «Загрузки» (см. *Купон в PDF*). |
+| Offer text | 2–3 paragraphs with the terms. Static. |
+| Button **"Gutschein generieren"** | Shows the code `654-321` and a "Kopieren" button below it. |
+| Button **"Kopieren"** | Copies the code to the clipboard, shows a short message. |
+| Button **"Zum Shop"** | Click-out. Opens `https://www.google.de` in the external browser. |
+| Text **"Oder Gutschein für die Filiale herunterladen"** | Static. |
+| Button **"Download"** | Builds a PDF coupon and saves it to the Downloads folder (see *Coupon PDF*). |
 
-Все три действия — код, click-out, скачивание — доступны на экране оффера
-одновременно. Разных типов офферов нет. Код `654-321` одинаковый для всех.
+All three actions — code, click-out, download — are available on the offer
+screen at the same time. There are no different offer types. The code
+`654-321` is the same for all offers.
 
-**Тест-страницы.** Пять экранов `Testseite 1` … `Testseite 5`, отличаются
-друг от друга только именем (`screen_name`). На каждой:
+**Test screens.** Five screens `Testseite 1` … `Testseite 5`; they differ
+from each other only by name (`screen_name`). Each of them has:
 
-- пять кнопок-ссылок **«Seite 1»** … **«Seite 5»** — переход на
-  соответствующую тест-страницу;
-- восемь кнопок **«Angebot 1»** … **«Angebot 8»** — переход на экран
-  соответствующего оффера напрямую, без списка.
+- five link buttons **"Seite 1"** … **"Seite 5"** — a move to the matching
+  test screen;
+- eight buttons **"Angebot 1"** … **"Angebot 8"** — a move straight to the
+  screen of the matching offer, without a list.
 
-Тест-страницы нужны для тестирования path- и funnel-чартов. Переходами между ними строят
-цепочку экранов; кнопкой в оффер — путь в оффер, на котором нет контекста
-листа. Не дожны перезаписывать контекст (контекст сохраняется). Смысл — получить в одном проекте
-и привязанные к листу, и не привязанные пути к одним и тем же офферам.
+The test screens are there for testing path and funnel charts. Moves
+between them build a chain of screens; a button into an offer gives a path
+into an offer that has no list context. The point is to have, in one
+project, both list-linked and unlinked paths to the same offers. A test
+screen does not overwrite the list context: if the offer was chosen in a
+list before, the list is kept — section 4, *`attribution_context`*.
 
-## Значения трекинга
+## Behaviour
 
-Каждое значение, которое уходит в события, задано здесь и только здесь.
-Список офферов фиксирован и зашит в приложение, сервера нет.
+**A tapped button changes colour:** blue → grey. The colour goes back to
+blue when the offer screen is opened again.
 
-### Экраны и `current_offer`
+**Bottom navigation.** A bar at the bottom of the screen with two buttons:
+the house icon leads to the start screen, **"1–5"** to `Testseite 1`. It is
+shown on all screens, including the offer screen.
 
-| Экран (`screen_name`) | Тип | `current_offer` |
+**Navigation.** Forward — with "Zum Angebot" in a card, with the buttons
+"Angebot 1" … "Angebot 8" on a test screen and with the bottom navigation
+(house icon, "1–5"). Between test screens — with the link buttons
+"Seite 1" … "Seite 5". From any screen to the start screen — with the
+house icon in the bottom navigation or with the system back button; the
+offer screen has no back button of its own.
+
+**The app has no:** login, search, search history, Merkzettel, map,
+profile, settings, cart. There is no category screen either — the offers
+are just tagged with a category in the data.
+
+## Coupon PDF
+
+The **"Download"** button builds a one-page PDF inside the app: shop, offer
+title, the code in large type, and a line asking the user to print it and
+show it in the shop.
+
+The file is saved to the public Downloads folder as
+`gutschein-<offer-id>.pdf`, for example `gutschein-offer_01.pdf`. It can be
+opened, printed or shared like any other file in Downloads.
+
+## Tracking values
+
+### Screens and `current_offer`
+
+| Screen (`screen_name`) | Type | `current_offer` |
 |---|---|---|
-| `Startseite` | стартовый | `Neustarter & Highlights` |
-| `Fitwerk` | оффер | `20 % auf alle Sportschuhe` |
-| `Nordlicht Wohnen` | оффер | `15 € Rabatt ab 75 € Bestellwert` |
-| `Kaffeekontor` | оффер | `Versandkostenfrei bestellen` |
-| `Sichtbar Optik` | оффер | `2 für 1 auf Brillengläser` |
-| `Fadenwerk` | оффер | `30 % auf die Herbstkollektion` |
-| `Polstermanufaktur` | оффер | `10 % auf alle Polstermöbel` |
-| `Hofkiste` | оффер | `Bio-Gemüsekiste zum Kennenlernpreis` |
-| `Klarblick` | оффер | `Kostenlose Sehanalyse und 20 % auf Sonnenbrillen` |
-| `Testseite 1` … `Testseite 5` | тест-страница | — свойство не отправляется |
+| `Startseite` | start | `Neustarter & Highlights` |
+| `Fitwerk` | offer | `20 % auf alle Sportschuhe` |
+| `Nordlicht Wohnen` | offer | `15 € Rabatt ab 75 € Bestellwert` |
+| `Kaffeekontor` | offer | `Versandkostenfrei bestellen` |
+| `Sichtbar Optik` | offer | `2 für 1 auf Brillengläser` |
+| `Fadenwerk` | offer | `30 % auf die Herbstkollektion` |
+| `Polstermanufaktur` | offer | `10 % auf alle Polstermöbel` |
+| `Hofkiste` | offer | `Bio-Gemüsekiste zum Kennenlernpreis` |
+| `Klarblick` | offer | `Kostenlose Sehanalyse und 20 % auf Sonnenbrillen` |
+| `Testseite 1` … `Testseite 5` | test screen | — the property is not sent |
 
-### Офферы и категории
+### Offers and categories
 
-| ID оффера | Магазин | Заголовок (`current_offer`) | Категория |
+| Offer ID | Shop | Title (`current_offer`) | Category |
 |---|---|---|---|
 | `offer_01` | Fitwerk | `20 % auf alle Sportschuhe` | Bekleidung |
 | `offer_02` | Nordlicht Wohnen | `15 € Rabatt ab 75 € Bestellwert` | Möbel |
@@ -1168,22 +1220,23 @@ amplitude.track("go_to_shop", mapOf("code_copied" to "yes"))
 | `offer_07` | Hofkiste | `Bio-Gemüsekiste zum Kennenlernpreis` | Lebensmittel |
 | `offer_08` | Klarblick | `Kostenlose Sehanalyse und 20 % auf Sonnenbrillen` | Optik |
 
-Четыре категории, по два оффера в каждой. Категория в события не уходит:
-свойство `item_category` в раздел 4 пока не входит.
+Four categories, two offers in each. The category is not sent with the
+events: the `item_category` property is not part of section 4 yet.
 
-### Списки офферов
+### Offer lists
 
-Два списка, оба на стартовом экране. `item_list_id` / `item_list_name` —
-свойства событий раздела 4, на уровне события.
+Two lists, both on the start screen. `item_list_id` / `item_list_name` are
+properties of the section 4 events.
 
-| Список | `item_list_id` | `item_list_name` | Блок |
+| List | `item_list_id` | `item_list_name` | Block |
 |---|---|---|---|
-| Highlights | `home_highlights` | `Highlights` | первый |
-| Neustarter | `home_neustarter` | `Neustarter` | второй |
+| Highlights | `home_highlights` | `Highlights` | first |
+| Neustarter | `home_neustarter` | `Neustarter` | second |
 
-Состав и позиция (`index`, с нуля) — место карточки внутри своего блока:
+Content and position (`index`, from zero) — the place of the card inside
+its own block:
 
-| Оффер | в Highlights | в Neustarter |
+| Offer | in Highlights | in Neustarter |
 |---|---|---|
 | `offer_01` Fitwerk | 0 | 4 |
 | `offer_02` Nordlicht Wohnen | 1 | — |
@@ -1194,338 +1247,320 @@ amplitude.track("go_to_shop", mapOf("code_copied" to "yes"))
 | `offer_07` Hofkiste | — | 2 |
 | `offer_08` Klarblick | — | 3 |
 
-### Как читать таблицы
+### How to read the tables
 
-- На экране оффера `screen_name` совпадает с названием магазина. Все восемь
-  названий разные.
-- `current_offer` на экране оффера — заголовок этого оффера; на стартовом
-  экране — `Neustarter & Highlights`, объединяет оба блока. Оно есть только
-  в трекинге: на экране блоки подписаны отдельно, а заголовок экрана —
-  **Angebote**.
-- На тест-страницах `screen_view` несёт `screen_name` и
-  `previous_screen_name`, но не `current_offer`.
-- Fitwerk (`offer_01`) и Kaffeekontor (`offer_03`) стоят в обоих списках,
-  и позиция у них в каждом своя. В события раздела 4 позиция уходит
-  свойством `index` внутри объекта оффера.
+- The values are hard-coded in the app, there is no server.
+- On an offer screen `screen_name` is the same as the shop name. All eight
+  names are different.
+- `current_offer` on an offer screen is the title of that offer; on the
+  start screen it is `Neustarter & Highlights`, which covers both blocks.
+  It exists only in tracking: on the screen the blocks have separate
+  subtitles, and the screen title is **Angebote**.
+- Fitwerk (`offer_01`) and Kaffeekontor (`offer_03`) are in both lists,
+  with a different position in each. In the section 4 events the position
+  goes out as the `index` property.
 
-## Поведение
+## Technical decisions
 
-**Нажатая кнопка меняет цвет:** синий → серый. Цвет возвращается к синему,
-когда экран оффера открывают заново.
-
-**Навигация.** Вперёд — по «Zum Angebot» из карточки, по кнопкам «Angebot 1»
-… «Angebot 8» на тест-странице и по нижней навигации (домик, «1–5»). Между
-тест-страницами — кнопками-ссылками «Seite 1» … «Seite 5». Со всех экранов
-на стартовый — домиком в нижней навигации или системной кнопкой «назад»;
-отдельной кнопки «назад» на экране оффера нет.
-
-**В приложении нет:** входа, поиска, истории поиска, Merkzettel, карты,
-профиля, настроек, корзины. Экрана категорий тоже нет — офферы просто
-помечены категорией в данных.
-
-## Купон в PDF
-
-Кнопка **«Download»** собирает внутри приложения одностраничный PDF:
-магазин, заголовок оффера, код крупно и строка с просьбой распечатать его и
-показать в магазине.
-
-Файл сохраняется в общую папку «Загрузки» под именем
-`gutschein-<offer-id>.pdf`, например `gutschein-offer_01.pdf`. Его можно
-открыть, распечатать или отправить, как любой другой файл в «Загрузках».
-
-## Что уже проверено и что осталось
-
-**v1 проверена руками** на настоящем Pixel 10a (Android 17) и на нескольких
-эмуляторах, включая планшет: стартовый экран, экран оффера, генерация кода,
-смена цвета нажатых кнопок, скачивание PDF в «Загрузки», click-out.
-
-**v2 собрана.** Нижняя навигация, восемь офферов в четырёх категориях, два
-блока на стартовом экране и пять тест-страниц — в коде ветки
-`v2/amplitude`. Цепочка e-commerce встроена и проверена на эмуляторе
-2026-09-07 (`implementation-notes.md`, *E-commerce events*).
-
-**Проверено на эмуляторе 2026-09-09** — плагин `screen_name`,
-`previous_screen_name` и четыре события кнопок. Сквозной проход: список →
-оффер → тест-страница → тот же оффер → «Zum Shop». Цепочка
-`previous_screen_name` совпала с проходом, `begin_checkout` после
-тест-страницы принёс лист исходного выбора, `go_to_shop` пришёл с
-`code_copied` и `screen_name` от плагина, события границы сессии — без
-`screen_name`. Подробности — `implementation-notes.md`.
-
-**Осталось:** настройка проекта в Amplitude (раздел 4, *DA — настройка в
-Amplitude*).
-
-**Решено 2026-09-06 — поворот экрана.** Раньше поворот сбрасывал приложение
-на стартовый экран: открытый оффер и состояние его экрана не переживали
-пересоздание. Теперь переживают, и поворот перестал слать лишний
-`screen_view` — раздел 3, *Trigger*. Как это подключено в коде —
-`implementation-notes.md`, Part 1.
-
-## Технические решения
-
-| Пункт | Значение |
+| Item | Value |
 |---|---|
-| Имя приложения на телефоне | Angebote |
+| App name on the phone | Angebote |
 | Application ID | `de.angebote.trackingtest` |
-| Язык и UI | Kotlin, Jetpack Compose |
-| Минимальный Android | 10 (API 29) |
-| Собирается против | API 37 |
-| SDK аналитики | Amplitude (на этой ветке) |
+| Language and UI | Kotlin, Jetpack Compose |
+| Lowest Android | 10 (API 29) |
+| Built against | API 37 |
+| Analytics SDK | Amplitude (on this branch) |
 
-**Почему Android 10 как минимум.** Чтобы аккуратно записать файл в общую
-папку «Загрузки», нужен API 29. Телефонов старше Android 10 в Европе мало,
-для тестового приложения это не ограничение.
+**Why Android 10 as the lowest version.** Writing a file into the public
+Downloads folder in a clean way needs API 29. Phones older than Android 10
+are rare in Europe, so for a test app this is not a real limit.
+
+## App status
+
+**v1 was checked by hand** on a real Pixel 10a (Android 17) and on several
+emulators, including a tablet: start screen, offer screen, code
+generation, the colour change of tapped buttons, the PDF download into
+Downloads, the click-out.
+
+**v2 is built** in the code of the `v2/amplitude` branch: bottom
+navigation, eight offers in four categories, two blocks on the start
+screen and five test screens. What was checked in tracking and when — the
+status line of each section and `implementation-notes.md`.
 
 
 ---
 
-# Приложение 2 — открытые вопросы
+# Attachment 2 — Open questions
 
-Не решённое и не построенное. Рабочий список, не спецификация.
+## Floating SDK version: the risk and how it is covered
 
+A floating version means that the set of collected data can, in theory,
+change without a single change in the code — if a new version changes a
+default or adds an option that is on by default.
 
-## Плавающая версия SDK: риск и чем он закрыт
+What covers this:
+- **`autocapture` is set as a complete set.** It is an allowlist, not a
+  set of flags: what is not in the set is not collected — including
+  autocapture options that do not exist yet today.
+- **`enableAutocaptureRemoteConfig = false`.** Closes the second way the
+  autocapture set could change without our knowledge — from the Amplitude
+  UI, even without a new SDK version.
+- **`locationListening = false` and `newDeviceIdPerInstall = true`.** Two
+  parameters where a change of the default changes the collected data at
+  once: location data, and whether a reinstall counts as a new user. Both
+  are set explicitly, each with its own value: location data is not
+  needed, and a new user per install is needed in the test app —
+  section 1, step 5, *Values*.
+- **`trackingOptions` with three `disable*` calls.** The IP, the
+  advertising ID and the App Set ID are switched off explicitly, and after
+  the first event they cannot change anyway.
 
-Плавающая версия означает, что набор собираемых данных теоретически может
-измениться без единой правки в коде — если новая версия поменяет умолчание
-или добавит опцию, включённую по умолчанию.
+What is **not** covered: a top-level parameter that appears in a future
+version and is on by default. You cannot write down today what does not
+exist yet. The only protection is to read the changelog when the SDK
+version is raised; this is an item on the development checklist, not a
+line in the code.
 
-Чем это закрыто:
-- **`autocapture` задан множеством целиком.** Это белый список, а не набор
-  флажков: чего в множестве нет, того не собирается — включая опции
-  автосбора, которых сегодня ещё не существует.
-- **`enableAutocaptureRemoteConfig = false`.** Закрывает второй путь, по
-  которому набор автосбора мог бы поменяться без нашего ведома — из
-  интерфейса Amplitude, даже без новой версии SDK.
-- **`locationListening = false` и `newDeviceIdPerInstall = false`.** Два
-  параметра, где смена умолчания сразу меняет собираемые данные: геоданные
-  и то, считается ли переустановка новым пользователем.
-- **`trackingOptions` с тремя `disable*`.** IP, рекламный идентификатор и
-  App Set ID выключены явно и после первого события всё равно не меняются.
+**Talk to Amplitude before launch.** Confirm that new collection options
+are not switched on in existing apps by themselves, and that changes of
+defaults are announced in the changelog. The chance of the opposite is
+close to zero — the known precedent goes the other way: `locationListening`
+was switched off by default in 1.20.7 — but it has to be discussed: the
+cost of a mistake is data collected without a basis.
 
-Чем это **не** закрыто: параметром верхнего уровня, который появится в
-будущей версии включённым по умолчанию. Прописать сегодня то, чего ещё нет,
-нельзя. Единственная защита — читать changelog при подъёме версии SDK; это
-пункт чек-листа разработки, а не строка в коде.
+## `trackingOptions`: the other fields
 
-**Разговор с Amplitude до запуска.** Подтвердить, что новые опции сбора не
-включаются в существующих приложениях сами и что изменения умолчаний
-объявляются в changelog. Вероятность обратного близка к нулю — известный
-прецедент обратный, `locationListening` в 1.20.7 из умолчаний выключили, —
-но проговорить надо: цена ошибки это данные, собранные без основания.
+The IP address, the advertising ID and the App Set ID are switched off.
+The other built-in fields — carrier, city, country, region, device model
+and manufacturer, language, OS version and more — go out as they are for
+now. Which of them a real app should send is a privacy question, and it
+has not been asked yet.
 
+Separately: switching off the IP makes city and region useless — Amplitude
+derives them from the IP. Checked on the first data on 2026-09-06: on all
+events `city` and `region` are empty, while `country` is filled. The
+country is apparently not taken from the IP; where exactly it comes from
+is not clear yet, and until it is, it is better not to rely on it.
 
-## Frustration-события: почему выключены и что нужно, чтобы включить
+## Session Replay: sample rate, masking and its own remote config
 
-`FRUSTRATION_INTERACTIONS` даёт два события: **rage click** — четыре и
-более нажатия в одну точку за секунду, и **dead click** — нажатие, после
-которого три секунды на экране ничего не меняется. Оба работают в Jetpack
-Compose и не требуют кода. Данные полезные: они показывают, где человек
-застрял.
+`SessionReplayPlugin()` is added without arguments, so it runs on the
+plugin defaults. The first launch on 2026-09-04 showed in the log what
+they really are, and that raised three questions.
 
-Выключены, потому что в этом приложении такое событие сейчас не отвечает ни
-на один вопрос. Ему нужны два ответа, и обоих нет.
+**The sample rate is 1 %, and the check session was not recorded.** The
+plugin starts with `sampleRate: 0.0`, then fetches `sampleRate: 0.01` from
+the server and writes to the log: `Opting session … out of recording due
+to sample rate`. So Session Replay is on now, but it records one session
+in a hundred — a random one. For a manual check this means there may be no
+recording at all. Decide: keep 1 % or raise it for the time of the check.
 
-**Где произошло.** Свойство `[Amplitude] Screen Name` на автоматических
-событиях вычисляет сам SDK — из заголовка, метки, имени или класса
-Activity. Наши собственные события об экране он для этого **не читает**:
-для SDK наше событие — обычное событие, а не смена экрана. Все 14 экранов
-приложения живут в одной Activity, значит все rage-клики придут с одним и
-тем же именем. Своё событие экрана этого не чинит.
+**Masking — `maskLevel: MEDIUM`.** What falls under this level and what
+does not has not been read yet.
 
-Чинит **плагин `screen_name`** — он описан в разделе 1, шаге 8, и открытым
-вопросом больше не является: свойство встанет и на `Rage Click`, и на
-`Dead Click`, и покажет, на каком из 14 экранов человек застрял. Остаётся
-дождаться, когда плагин напишут.
+**The plugin has its own remote config, and it is on.** The log shows
+`enableRemoteConfig: true` and `configSource: remote` — the plugin fetches
+its recording settings from Amplitude at every start. Our
+`enableAutocaptureRemoteConfig = false` does not affect it: that is a
+setting of event autocapture, not of the plugin. So the sample rate and
+masking are now controlled from outside, not by the code — exactly what we
+did not want under the principle "the code must be the truth about what
+the app collects". Find out whether this can be switched off, and decide.
 
-**По чему нажали.** Элемент Compose Amplitude опознаёт по
-`Modifier.testTag`, который приходит как `[Amplitude] Target Tag`. Без
-тегов это клик по безымянному элементу. Список тегов идёт вместе с
-событиями кнопок и ещё не написан.
+## Autocaptured `Application Opened`: rotation and event order
 
-Порядок такой: сначала плагин с именем экрана и теги на кнопках, потом
-включаем `FRUSTRATION_INTERACTIONS`. Заодно тогда же решается
-`interactionsOptions` — нужны оба вида событий или только один.
+Found on 2026-09-06 while debugging `screen_view` on an emulator. Both
+facts concern section 2 and cannot be fixed with a setting — only with a
+plugin or by giving up autocapture.
 
-## Session Replay: частота записи, маскирование и свой удалённый конфиг
+Our `screen_view` has survived a rotation since 2026-09-06 — section 3,
+*Trigger*. `Application Opened` below is a separate story: the SDK builds
+this event, and it still fires on a rotation.
 
-`SessionReplayPlugin()` добавлен без аргументов, то есть работает на
-умолчаниях плагина. Первый запуск 2026-09-04 показал в логе, какие они на
-самом деле, и вопросов стало три.
+**A screen rotation gives an extra app open.** Every rotation of the
+device gives the pair `[Amplitude] Application Backgrounded` +
+`[Amplitude] Application Opened`, although the app stays in the foreground
+the whole time. Autocapture is derived from the Activity lifecycle, and a
+rotation recreates the Activity. The Firebase branch did not have this:
+there `app_open` was sent by hand from an observer of the **process**
+lifecycle, and a rotation does not recreate the process.
 
-**Частота записи — 1 %, и сессия проверки записана не была.** Плагин
-стартует с `sampleRate: 0.0`, затем забирает с сервера `sampleRate: 0.01` и
-пишет в лог: `Opting session … out of recording due to sample rate`. То
-есть Session Replay сейчас включён, но записывает одну сессию из ста —
-случайную. Для ручной проверки это значит, что записи может не быть вовсе.
-Решить: оставить 1 % или поднять на время проверки.
+What this does to the numbers: the more often people rotate the screen,
+the more app opens there are. An "open" stops meaning a "visit".
 
-**Маскирование — `maskLevel: MEDIUM`.** Что попадает под этот уровень, а
-что нет, ещё не прочитано.
+Options, none of them free:
 
-**У плагина свой удалённый конфиг, и он включён.** В логе
-`enableRemoteConfig: true` и `configSource: remote` — плагин забирает
-настройки записи из Amplitude при каждом старте. Наш
-`enableAutocaptureRemoteConfig = false` на него не действует: это настройка
-автосбора событий, а не плагина. То есть частота записи и маскирование
-сейчас управляются снаружи, а не кодом — ровно то, чего мы не хотели по
-принципу «код должен быть правдой о том, что собирает приложение». Найти,
-можно ли это выключить, и решить.
+- accept it and do not build visit metrics on this event — count visits by
+  `session_id`, which a rotation does not reset (checked: all events
+  before and after the rotation stayed in one session);
+- switch off `APP_LIFECYCLES` and send our own open event from a process
+  observer, as in Firebase — then the code comes back that autocapture was
+  switched on to avoid;
+- filter out the pair in an enrichment plugin — the plugin sees the event
+  before it is sent, but it still has to learn from somewhere that "this
+  is a rotation, not an open".
 
-## Автозахват `Application Opened`: поворот и порядок событий
+**The order with `screen_view` is not guaranteed.** Checked in three
+scenarios:
 
-Найдено 2026-09-06 при отладке `screen_view` на эмуляторе. Оба факта
-касаются раздела 2 и никак не чинятся настройкой — только плагином или
-отказом от автозахвата.
-
-Наш `screen_view` поворот с 2026-09-06 переживает — раздел 3, *Trigger*.
-`Application Opened` ниже — отдельная история: это событие строит SDK, и на
-поворот оно по-прежнему срабатывает.
-
-**Поворот экрана даёт лишнее открытие приложения.** Каждый поворот
-устройства выдаёт пару `[Amplitude] Application Backgrounded` +
-`[Amplitude] Application Opened`, хотя приложение всё это время на переднем
-плане. Автозахват выведен из жизненного цикла Activity, а её поворот
-пересоздаёт. На ветке Firebase этого не было: там `app_open` слался руками
-с наблюдателя за жизненным циклом **процесса**, а процесс поворот не
-переживает заново.
-
-Что это делает с числами: открытий приложения тем больше, чем чаще люди
-поворачивают экран. «Открытие» перестаёт означать «визит».
-
-Варианты, ни один не бесплатный:
-
-- принять и не строить метрик визита на этом событии — считать визиты по
-  `session_id`, который поворот не сбрасывает (проверено: все события до и
-  после поворота остались в одной сессии);
-- выключить `APP_LIFECYCLES` и слать своё событие открытия с наблюдателя за
-  процессом, как на Firebase, — тогда возвращается код, ради отказа от
-  которого автозахват и включали;
-- отфильтровать пару в enrichment-плагине — плагин видит событие перед
-  отправкой, но «это поворот, а не открытие» ему ещё надо откуда-то узнать.
-
-**Порядок с `screen_view` не гарантирован.** Проверено на трёх сценариях:
-
-| Сценарий | Порядок |
+| Scenario | Order |
 |---|---|
-| холодный старт | `Application Opened` → `screen_view` |
-| поворот экрана | `Backgrounded` → `Opened` → `screen_view` |
-| возврат из фона | `screen_view` → `Application Opened` |
+| cold start | `Application Opened` → `screen_view` |
+| screen rotation | `Backgrounded` → `Opened`; no `screen_view` goes out (section 3, *Trigger*) |
+| return from the background | `screen_view` → `Application Opened` |
 
-Разрыв в последнем случае — единицы миллисекунд: наш наблюдатель за
-`ON_RESUME` успевает раньше, чем SDK доходит до своего колбэка Activity.
-Порядок задаёт SDK, из приложения на него не повлиять.
+The gap in the last case is a few milliseconds: our `ON_RESUME` observer
+gets there before the SDK reaches its Activity callback. The SDK sets the
+order; the app cannot influence it.
 
-Практический вывод: воронка, которая начинается с `Application Opened` и
-продолжается `screen_view`, потеряет часть возвратов. Если такая воронка
-понадобится, строить её на сессии, а не на паре событий.
+Practical conclusion: a funnel that starts with `Application Opened` and
+continues with `screen_view` will lose part of the returns. If such a
+funnel is needed, build it on the session, not on the pair of events.
 
-## `screen_view` при возврате в приложение
+## `screen_view` on a return to the app
 
-Когда человек возвращается на экран из браузера, из скачивания PDF или из
-другого приложения, экран снова оказывается в фокусе и `screen_view` уходит
-второй раз. Формально это не просмотр, а возврат.
+When a person comes back to a screen from the browser, from the PDF
+download or from another app, the screen is in focus again and
+`screen_view` goes out a second time. Formally this is not a view but a
+return.
 
-Решение раздела 3 — **слать**. После долгого фона Amplitude начинает новую
-сессию, и без `screen_view` у этой сессии не было бы входного экрана; кроме
-того, числа остаются сравнимыми с веткой Firebase, где решение такое же.
-Завышение счёта экранов лечится пометкой, а не отказом от события.
+The decision of section 3 is to **send it**. After a long time in the
+background Amplitude starts a new session, and without `screen_view` that
+session would have no entry screen; besides, the numbers stay comparable
+with the Firebase branch, where the decision is the same. The inflated
+screen count is handled by marking, not by dropping the event.
 
-Не решено:
+Not decided:
 
-1. **Чем помечать.** Возвратному `screen_view` нужен признак, по которому
-   его исключают из массовых метрик — счёта экранов и глубины просмотра, где
-   он завышает числа. Признак частично есть: у возврата внутри сессии
-   `previous_screen_name` равен `screen_name` (раздел 3, *Предыдущий
-   экран*) — внутри приложения человек на тот же экран не переходит, а при
-   возврате остаётся на нём. Такой фильтр строится в любом чарте. Возврат
-   позже таймаута сессии в этот фильтр не попадёт: он открывает новую
-   сессию и выглядит так же, как холодный старт. Нужно ли ловить и его,
-   пока не решено.
-2. **Как использовать.** После возврата человек идёт дальше по приложению
-   или закрывает его. Это отдельный вопрос, и возвратное событие для него —
-   точка отсчёта.
+1. **How to mark it.** A return `screen_view` needs a marker to exclude it
+   from mass metrics — screen counts and screen depth, where it inflates
+   the numbers. The marker partly exists: on a return within a session
+   `previous_screen_name` equals `screen_name` (section 3, *Previous
+   screen*) — inside the app a person does not move to the same screen,
+   but on a return they stay on it. Such a filter can be built in any
+   chart. A return after the session timeout does not fall into this
+   filter: it opens a new session and looks the same as a cold start.
+   Whether it needs to be caught too is not decided yet.
+2. **How to use it.** After a return the person goes on through the app or
+   closes it. This is a separate question, and the return event is its
+   starting point.
 
-Соседний вопрос — `minTimeBetweenSessionsMillis` и click-out, ниже: он
-решает, попадёт ли возврат в ту же сессию.
+A related question is `minTimeBetweenSessionsMillis` and the click-out,
+below: it decides whether a return falls into the same session.
 
-## `minTimeBetweenSessionsMillis` и click-out
+## `minTimeBetweenSessionsMillis` and the click-out
 
-Умолчание — 5 минут: вернулся позже, и Amplitude начинает новую сессию.
-Приложение уводит пользователя в браузер и в PDF в «Загрузках», а смысл
-воронки — что он сделает после возврата. Тот, кто читал страницу магазина
-шесть минут, возвращается новой сессией, и воронка рвётся посередине.
+The default is 5 minutes: come back later, and Amplitude starts a new
+session. The app sends the user to the browser and to the PDF in
+Downloads, and the point of the funnel is what they do after coming back.
+Someone who read the shop page for six minutes comes back in a new
+session, and the funnel breaks in the middle.
 
-Открыто: оставить умолчание и принять это или поднять значение. Поднятие
-прячет настоящие перерывы между визитами, так что это обмен, а не решение.
-На ветке Firebase тот же вопрос в другой форме — `screen_view` при возврате
-из фона.
+Open: keep the default and accept this, or raise the value. Raising it
+hides real breaks between visits, so it is a trade-off, not a solution.
+The Firebase branch has the same question in another form — `screen_view`
+on a return from the background.
 
-## `trackingOptions`: остальные поля
+## A property with no value on some screens: leave it out or `null`
 
-Выключены IP-адрес, рекламный идентификатор и App Set ID. Остальные
-встроенные поля — оператор связи, город, страна, регион, модель и
-производитель устройства, язык, версия ОС и прочее — пока идут как есть.
-Полный список в `infos/amplitude-configuration-options.md`. Что из этого
-должно уходить у настоящего приложения — вопрос к приватности, его ещё не
-задавали.
+Example — `current_offer`: the test screens have no offer, and now the
+property is not sent there (section 3, *Code*).
 
-Отдельно: выключение IP обесценивает город и регион — Amplitude определяет
-их по IP. Проверено на первых данных 2026-09-06: на всех событиях `city` и
-`region` пустые, а `country` заполнена. Страна, судя по всему, берётся не из
-IP; откуда именно — не выяснено, и до выяснения на неё лучше не опираться.
+It may be simpler for the developer to send `screen_view` on all screens
+with one and the same call and one set of properties. Then a property with
+no value needs to get something, and there are three options: leave it
+out, an empty string `""`, or `null`.
 
-## Hold constant по дочернему свойству
+**Do not send an empty string.** It is unknown whether Amplitude treats
+`""` as the same missing value as a property that was not sent. If not,
+the reports get two kinds of "no value", and a filter on one of them
+silently loses the other.
 
-Воронка раздела 4 держит постоянным `items.item_id` — свойство внутри
-массива объектов. Документация Amplitude описывает hold constant только для
-обычного event property, инструментированного на каждом шаге воронки, а про
-дочерние свойства молчит; про массивы сказано лишь, что они доступны в
-Event Segmentation и Funnel Analysis и видны в списках свойств с меткой
-`{:}`. То есть удержание дочернего свойства выглядит возможным, но нигде не
-подтверждено.
+**`null` is the option for such a call.** It says directly that there is no
+value here and that this is on purpose — like `null` in JavaScript: the
+value is missing on purpose, not forgotten.
 
-Проверяется в интерфейсе на первых пришедших событиях, после включения
-property splitting. Если окажется, что нельзя, запасной ход есть:
-продублировать `item_id` скаляром на `select_item`, `view_item` и
-`begin_checkout` — там оффер один, и это ничего не стоит. Воронка тогда
-пойдёт с `select_item`, а `view_item_list` в ней участвовать не будет:
-скаляра с восемью офферами не бывает.
+Check before allowing `null`:
 
-## `view_item_list` и реально увиденные карточки
+1. Does `null` reach Amplitude, or does the SDK drop such a property
+   already on the device?
+2. How does Amplitude show `null` in charts? According to the documentation
+   the `(none)` group is the null value, so, presumably, `null` and a
+   property that was not sent look the same in reports. Then the intent is
+   visible only in the code, and the data does not change with the choice.
+3. Where does `""` go: into `(none)` or as a separate value?
 
-Событие уходит на весь лист сразу, вместе с показом стартового экрана. Оно
-говорит, что лист был на экране, а не что пользователь дошёл глазами до
-каждой карточки: второй блок, Neustarter, при открытии экрана виден не
-целиком. Отсюда завышенные показы у нижних позиций и заниженный CTR.
+## `view_item_list` and the cards really seen
 
-Починка — слать объекты только тех карточек, которые действительно попали в
-видимую область, и по мере прокрутки досылать остальные. Это меняет и смысл
-события: одно событие на лист превращается в несколько. Пока не делаем — на
-прототипе важнее, чтобы цепочка была цельной.
+The events go out for all cards at once, together with the view of the
+start screen. The event says that the card was in the list on the open
+screen, not that the user scrolled down to it: the second block,
+Neustarter, is not fully visible when the screen opens. This gives too
+many impressions for the lower positions and a CTR that is too low.
+
+The right solution for an enterprise setup or for Firebase is not covered in this document — what we have is enough at this stage.
+
+## The `items` array: when to go back to it
+
+The array of objects was removed from the schema on 2026-09-10 (section 4,
+*Data shape*), but the question is not closed forever: on a plan with
+property splitting the array becomes a working shape again, and with it
+the *Purchase by Product* and *Product Discovery* hubs and item-level
+attribution come back.
+
+What this needs: a plan above `starter_v4` and property splitting switched
+on for the `items` property. Splitting cannot be switched on through MCP —
+the taxonomy API has no such tool, only the UI has it.
+
+What to check **before** going back, not after: whether hold constant
+works on a child property. The Amplitude documentation describes hold
+constant only for a normal event property instrumented on every funnel
+step, and says nothing about child properties; about arrays it only says
+that they are available in Event Segmentation and Funnel Analysis and are
+shown in property lists with the `{:}` mark. With the flat schema this
+question does not arise: hold constant on `item_id` is a normal event
+property.
+
+Going back to the array also means that `view_item_list` goes back to one
+event per list, which breaks the data series for this event. So this is a
+release decision, not a quiet change.
+
 
 ---
 
-# Приложение 3 — дополнительная информация
+# Attachment 3 — Additional information
 
-## API-ключ: что им можно и чем рискуем
+## SDK parameters with nothing to decide
 
-Ключ уезжает внутрь APK в любом случае. Это **ключ на запись**: им можно
-только присылать события в проект.
+There is no line in the code — the SDK default applies. The three
+parameters whose default is not neutral are discussed in section 1,
+step 5, *Parameters we do not set*.
 
-Чего им сделать **нельзя**: прочитать наши отчёты, выгрузить собранные
-данные, удалить или изменить их. Для этого у Amplitude отдельная пара
-ключей для API, и в приложение она не попадает.
+- **the default is fine as it is** — `deviceId`, `flushEventsOnClose`,
+  `callback`, `httpClient`, `useBatch`, `offline`, `storageProvider`,
+  `identifyInterceptStorageProvider`, `identityStorageProvider`,
+  `loggerProvider`, `enableRequestBodyCompression`,
+  `enableCoppaControl`, `instanceName`;
+- **not our case** — `minIdLength`, `partnerId`,
+  `identifyBatchIntervalMillis`, `ingestionMetadata`, `sessionId`, `plan`,
+  `interactionsOptions`;
+- **deprecated** — `flushMaxRetries`, `trackingSessionEvents`,
+  `defaultTracking`.
 
-Что может тот, кто вытащил ключ из опубликованного APK: слать в наш проект
-выдуманные события. Последствия — мусор в отчётах, который трудно отделить
-от настоящих данных, и расход оплаченного объёма событий. То есть удар по
-качеству данных и по счёту, а не по их конфиденциальности.
+## Differences from the setup guide in the Amplitude UI
 
-Полной защиты здесь нет ни у Amplitude, ни у Firebase: любой клиентский SDK
-носит такой ключ в себе, и это принятый компромисс. Что делают на практике:
-держат разные проекты для разработки и для продакшена, следят за
-аномальными скачками объёма и при подозрении меняют ключ.
+The setup guide that Amplitude shows inside a project after it is created
+works, but it is built differently. This document follows the SDK
+reference. There are three differences:
 
-`.gitignore` защищает не от этого. Он держит ключ вне публичной страницы на
-GitHub — и только.
+1. **The constructor form.** The SDK reference documents the form with a
+   lambda — `Amplitude(apiKey, context) { … }`, so section 1, step 5 uses
+   it. The form `Configuration(apiKey = …, context = …)` from the guide
+   works too.
+2. **`defaultTracking = DefaultTrackingOptions.ALL`.** In the SDK reference
+   `defaultTracking` is marked as deprecated and replaced by `autocapture`.
+   Code with it compiles and works, but `ALL` would also switch on screen
+   views, which we do not need.
+3. **The key as a string in the code.** Ours comes from
+   `BuildConfig.AMPLITUDE_API_KEY` — this is our decision, see section 1,
+   step 2.

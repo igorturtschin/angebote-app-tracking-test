@@ -7,19 +7,26 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 /**
  * E-commerce events, see docs/tracking-concept.md, section "4. E-commerce
- * события": the chain view_item_list -> select_item -> view_item ->
+ * events": the chain view_item_list -> select_item -> view_item ->
  * begin_checkout, and the offer context that travels along it from the list to
  * the target action.
  *
  * Amplitude has no reserved e-commerce names — event and property names are
- * ours. They match GA4 (and the Firebase branch), so the two branches read the
- * same. An event name is a plain string, so the names are declared here once.
+ * ours. The names match GA4 (and the Firebase branch), so a reader of both
+ * branches sees the same vocabulary. An event name is a plain string, so the
+ * names are declared here once.
  *
- * Shape (concept, "Форма данных: массив объектов items"):
- * - list properties (item_list_id, item_list_name) sit on the event;
- * - offer properties sit inside objects of the `items` array;
- * - view_item_list carries one object per card in the list, the other three
- *   carry exactly one — the offer the event is about.
+ * Shape (concept, "Data shape: flat event properties"): every property —
+ * list and offer alike — sits directly on the event, there is no `items`
+ * array. Amplitude on this plan cannot split an array into child properties,
+ * and a property it cannot split is not a dimension: no group by, no filter,
+ * no hold constant. Flat properties are all of that for free.
+ *
+ * That is why view_item_list is one event **per card**: a flat event carries
+ * exactly one item_id, so the only way to keep the per-offer breakdown of
+ * impressions is one event per offer. The Firebase branch keeps the GA4
+ * `items` array and one view_item_list per list; the two branches differ on
+ * purpose — concept, "What the flat schema costs".
  */
 
 private const val EVENT_VIEW_ITEM_LIST = "view_item_list"
@@ -29,7 +36,6 @@ private const val EVENT_BEGIN_CHECKOUT = "begin_checkout"
 
 private const val PROP_ITEM_LIST_ID = "item_list_id"
 private const val PROP_ITEM_LIST_NAME = "item_list_name"
-private const val PROP_ITEMS = "items"
 
 private const val ITEM_ID = "item_id"
 private const val ITEM_NAME = "item_name"
@@ -38,14 +44,15 @@ private const val ITEM_COUPON = "coupon"
 private const val ITEM_INDEX = "index"
 
 /**
- * One `items` object for an offer. `index` is the position of the card inside
- * its list; it is left out when there is no list (an offer opened from a test
- * screen) — see the concept, Values. `index` is a number, the rest are strings.
+ * The offer properties of one event. `index` is the position of the card
+ * inside its list; it is left out when there is no list (an offer opened from
+ * a test screen) — see the concept, Values. `index` is a number, the rest are
+ * strings.
  *
  * item_name and item_brand carry the same value: an offer has no name of its
  * own, the card is known by its shop (concept, Values).
  */
-private fun itemObject(offer: Offer, index: Int?): Map<String, Any> = buildMap {
+private fun offerProps(offer: Offer, index: Int?): Map<String, Any> = buildMap {
     put(ITEM_ID, offer.id)
     put(ITEM_NAME, offer.shop)
     put(ITEM_BRAND, offer.shop)
@@ -68,9 +75,9 @@ private fun itemObject(offer: Offer, index: Int?): Map<String, Any> = buildMap {
 data class AttributionContext(
     val listId: String?,
     val listName: String?,
-    val item: Map<String, Any>,
+    val offer: Map<String, Any>,
 ) {
-    val itemId: String? get() = item[ITEM_ID] as? String
+    val itemId: String? get() = offer[ITEM_ID] as? String
 }
 
 class EcommerceViewModel : ViewModel() {
@@ -82,42 +89,43 @@ class EcommerceViewModel : ViewModel() {
     var lastViewItemOpening: Int = -1
 }
 
-/** view_item_list for one block of the start screen. One object per card,
- *  index = position of the card inside this block. */
+/** view_item_list for one block of the start screen: one event per card,
+ *  index = position of the card inside this block. Four cards in Highlights
+ *  and six in Neustarter make ten events per start-screen view. */
 fun trackViewItemList(list: OfferList) {
-    val items = list.offerIds.mapIndexed { index, id -> itemObject(offerById(id), index) }
-    TrackingApp.amplitude.track(
-        EVENT_VIEW_ITEM_LIST,
-        mapOf(
-            PROP_ITEM_LIST_ID to list.id,
-            PROP_ITEM_LIST_NAME to list.name,
-            PROP_ITEMS to items,
-        ),
-    )
+    list.offerIds.forEachIndexed { index, id ->
+        TrackingApp.amplitude.track(
+            EVENT_VIEW_ITEM_LIST,
+            mapOf(
+                PROP_ITEM_LIST_ID to list.id,
+                PROP_ITEM_LIST_NAME to list.name,
+            ) + offerProps(offerById(id), index),
+        )
+    }
 }
 
 /**
  * select_item for a tap on "Zum Angebot" in a card, and the matching write of
- * the attribution context. The array holds the one card that was tapped.
+ * the attribution context.
  */
 fun selectItem(vm: EcommerceViewModel, list: OfferList, offer: Offer, index: Int) {
-    val item = itemObject(offer, index)
+    val props = offerProps(offer, index)
     TrackingApp.amplitude.track(
         EVENT_SELECT_ITEM,
         mapOf(
             PROP_ITEM_LIST_ID to list.id,
             PROP_ITEM_LIST_NAME to list.name,
-            PROP_ITEMS to listOf(item),
-        ),
+        ) + props,
     )
-    vm.attribution = AttributionContext(list.id, list.name, item)
+    vm.attribution = AttributionContext(list.id, list.name, props)
 }
 
 /**
  * Event properties for view_item / begin_checkout. If the stored context is
  * about this offer and has a list, the event carries the list and the stored
- * object; otherwise just the offer on screen, with no list and no `index`
- * (concept, "attribution_context": the offer is always known, the list is not).
+ * offer properties; otherwise just the offer on screen, with no list and no
+ * `index` (concept, "attribution_context": the offer is always known, the list
+ * is not).
  *
  * This is what makes a walk through a test screen harmless. Opening an offer
  * from a test screen writes nothing, so an offer chosen in a list earlier and
@@ -130,10 +138,9 @@ private fun offerEventProps(offer: Offer, ctx: AttributionContext?): Map<String,
         mapOf(
             PROP_ITEM_LIST_ID to ctx.listId,
             PROP_ITEM_LIST_NAME to (ctx.listName ?: ""),
-            PROP_ITEMS to listOf(ctx.item),
-        )
+        ) + ctx.offer
     } else {
-        mapOf(PROP_ITEMS to listOf(itemObject(offer, index = null)))
+        offerProps(offer, index = null)
     }
 }
 

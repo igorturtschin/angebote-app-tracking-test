@@ -18,11 +18,6 @@ German**. The app is shown to a German-speaking audience.
 The other folders of the project are in Russian. This rule applies here
 only.
 
-**One exception right now:** `docs/tracking-concept.md` is kept in Russian
-while it is being written, because the owner reads it faster that way. Do
-not translate it back to English on your own — it gets translated when the
-owner asks.
-
 ## Commits
 
 Subject: `type: what was done`, imperative mood, lower case, no full stop

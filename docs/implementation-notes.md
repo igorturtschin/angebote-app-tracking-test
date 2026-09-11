@@ -21,7 +21,7 @@ events are sent.** `TrackingApp.kt` starts Amplitude with the configuration of
 the concept, the dependencies are in the version catalog, the INTERNET
 permission is in the manifest. `Analytics.kt` holds the screen event,
 `Ecommerce.kt` holds `view_item_list` / `select_item` / `view_item` /
-`begin_checkout`. The *DA — настройка в Amplitude* part of section 4 (property
+`begin_checkout`. The *DA — setup in Amplitude* part of section 4 (property
 splitting, the reports, the funnel) is a project setting, not code, and is
 still open.
 
@@ -74,7 +74,7 @@ returns to `Startseite` and sends its `screen_view`. `versionName` bumped to
 | app comes to the foreground | sent by hand from a `ProcessLifecycleOwner` observer | autocapture `APP_LIFECYCLES`, no code at all — but it also fires on a rotation, which the hand-written one did not |
 | screen | own `screen_view` from an `ON_RESUME` observer, automatic one switched off | same hook and event name; the SDK call differs, and a rotation no longer repeats the event — see *`screen_view`* below |
 | offer view | `LaunchedEffect(offer.id)`, deliberately not the lifecycle observer | same idea, now `ViewItemEffect(offer, opening)` keyed on an opening counter so a rotation that keeps the offer does not repeat it — see *E-commerce events* |
-| checking events | `FA` / `FA-SVC` in logcat, DebugView | different — see `tracking-concept.md`, *Проверка, что события доходят* |
+| checking events | `FA` / `FA-SVC` in logcat, DebugView | different — see `tracking-concept.md`, *Check that events arrive* |
 
 ## SDK initialisation
 
@@ -129,9 +129,10 @@ Installed on the `8a` emulator (no Google Play image needed) and started.
   but whether those events are sent has to be checked in Amplitude itself
   (User Look-Up), not in logcat. Checked on 2026-09-06: they are sent — see
   the second run below.
-- Two findings that belong to the concept, written into its Attachment 2:
-  Session Replay runs at a 1 % sample rate and fetches its own remote config,
-  and the SDK warns that offline mode needs `ACCESS_NETWORK_STATE`.
+- Two findings that belong to the concept: Session Replay runs at a 1 % sample
+  rate and fetches its own remote config (concept, Attachment 2), and the SDK
+  warns that offline mode needs `ACCESS_NETWORK_STATE` (concept, section 1,
+  step 4).
 
 ## Event hooks
 
@@ -256,7 +257,7 @@ What the run confirms:
   rotations, not the trips to the home screen — started a second session,
   because none of them was longer than `minTimeBetweenSessionsMillis`.
 
-Two findings went into the concept, Attachment 2, *Автозахват `Application
+Two findings went into the concept, Attachment 2, *Autocaptured `Application
 Opened`*: a rotation produces a `Backgrounded` + `Opened` pair, and the order
 of `Application Opened` against our `screen_view` is not stable.
 
@@ -412,9 +413,9 @@ Server side checked with the Amplitude MCP the same day: totals for
 `item_list_id`: `select_item` is all `home_highlights` (the two list opens),
 `view_item` and `begin_checkout` are `home_highlights` ×2 plus `(none)` ×1 —
 the `(none)` being the offer opened from the test screen, the concept's
-"без листа" group. `items` is stored as `type: any` (not split): the array
+"no list" group. `items` is stored as `type: any` (not split): the array
 arrives whole but its children need property splitting, a project setting
-that is off — concept, section 4, *DA — настройка в Amplitude*.
+that is off — concept, section 4, *DA — setup in Amplitude*.
 
 Actions in the emulator, and the events they produced, in order:
 
@@ -455,8 +456,8 @@ of `Application Opened` against our events is not stable.
 
 # `screen_name` everywhere, `previous_screen_name`, button events (`v2/amplitude`)
 
-Concept sections 1 (step 8), 3 (*Предыдущий экран*) and 4 (*Четыре события
-кнопок*). Three pieces that share one thing: the app has to remember which
+Concept sections 3 (*Test app solution*) and 4 (*The four button
+events*). Three pieces that share one thing: the app has to remember which
 screen the user is on.
 
 ## One field: `CurrentScreen`
@@ -481,8 +482,10 @@ The session comes from the SDK (`amplitude.sessionId`), never from a timer
 of our own, so our chain cannot drift from the `session_id` the charts cut
 data by. `enter` clears the field when it sees a new session, and the plugin
 clears it from `onSessionIdChanged`, the SDK's own callback. Either way the
-first `screen_view` of a session reports `session_start` as its previous
-screen.
+first `screen_view` of a session reports `first_screen_in_session` as its
+previous screen. Until 2026-09-11 the value was `session_start` — the same
+string as the SDK event, so the two were easy to mix up in charts. The runs
+below were made with the old value.
 
 ## `ScreenNamePlugin`
 
@@ -562,6 +565,103 @@ What the run confirms:
 - Both target buttons produce their pair, button event first (steps 5, 11,
   12).
 - Test screens still carry no `current_offer` (step 3).
+
+---
+
+# Flat e-commerce properties (`v2/amplitude`)
+
+`Ecommerce.kt`, 2026-09-10. The four e-commerce events dropped the `items`
+array: every property now sits directly on the event, and `view_item_list`
+is sent once per card instead of once per list. The concept explains why
+(section 4, *Data shape: flat event properties*); this note is about the code and the
+run that checked it.
+
+## What changed in the code
+
+`itemObject()` became `offerProps()` and returns the same five offer
+properties, but they are merged into the event map instead of going inside a
+list:
+
+- `trackViewItemList` walks `list.offerIds` with `forEachIndexed` and sends
+  one event per card, list properties plus that card's offer properties.
+  Four cards in Highlights and six in Neustarter make ten events per
+  start-screen view.
+- `selectItem`, `offerEventProps` (used by `view_item` and `begin_checkout`)
+  merge the list properties and the offer properties into one flat map.
+- `AttributionContext.item` became `.offer` — the stored map is now the
+  event's own properties, not an array element.
+
+Nothing else moved. The hooks, the rotation guard, the one-per-opening rule
+for `view_item` and the test-screen rule for the context are unchanged, so
+the earlier notes in *E-commerce events* still describe them correctly.
+
+## Emulator test, 2026-09-10
+
+Emulator `9_Pro`, Android 17, app uninstalled first, SDK 1.30.1. Network cut
+before launch, the queue file read with `run-as` after the run, then the
+network turned back on and all 52 events uploaded with `status: SUCCESS`.
+The scenario is the one from *Emulator test, 2026-09-09*, so the two runs
+can be compared line by line; a rotation was added at the end.
+
+| # | Action in the emulator | Events (in queue order) |
+|---|---|---|
+| 1 | cold start, land on the start screen | `session_start`, `Application Installed`, `Application Opened` — all three **without `screen_name`**; then `screen_view{Startseite, previous=session_start}` and **ten** `view_item_list`: `offer_01..04` with `index` 0–3 in `home_highlights`, `offer_05..08, offer_01, offer_03` with `index` 0–5 in `home_neustarter` |
+| 2 | tap "Zum Angebot" on Fitwerk (Highlights, index 0) | `select_item{home_highlights, offer_01, index 0}`, `screen_view{Fitwerk, previous=Startseite}`, `view_item{home_highlights, offer_01, index 0}` |
+| 3 | bottom nav → Test | `screen_view{Testseite 1, previous=Fitwerk}`, no `current_offer` |
+| 4 | tap "Angebot 1" — the same Fitwerk | `screen_view{Fitwerk, previous=Testseite 1}`, `view_item{home_highlights, offer_01, index 0}` — **no `select_item`, and the list survived the test screen** |
+| 5 | tap "Zum Shop" | `go_to_shop{code_copied=no, screen_name=Fitwerk}`, `begin_checkout{home_highlights, offer_01, index 0}`, then `Application Backgrounded` |
+| 6 | return from the browser | `screen_view{Fitwerk, previous=Fitwerk}` and **no second `view_item`**; `Application Opened{screen_name=Fitwerk}` |
+| 7 | bottom nav → Home | `screen_view{Startseite, previous=Fitwerk}`, the same ten `view_item_list` again |
+| 8 | tap "Zum Angebot" on Kaffeekontor (Highlights, index 2) | `select_item{home_highlights, offer_03, index 2}`, `screen_view{Kaffeekontor, previous=Startseite}`, `view_item{home_highlights, offer_03, index 2}` |
+| 9–11 | "Gutschein generieren", "Kopieren", "Zum Shop" | `generate_code`, `copy_code`, `go_to_shop{code_copied=yes}`, `begin_checkout{home_highlights, offer_03, index 2}`, `Application Backgrounded` |
+| 12 | return from the browser, tap "Download" | `screen_view{Kaffeekontor, previous=Kaffeekontor}`, `Application Opened`, `download_coupon`, `begin_checkout{home_highlights, offer_03, index 2}` |
+| 13 | rotate to landscape and back | only the autocapture pairs `Application Backgrounded` / `Application Opened` — **no `screen_view`, no `view_item`** |
+
+Every rule the earlier run confirmed still holds: the context survives a
+test screen, `previous_screen_name` follows the walk, `screen_name` is on
+every event except the three cold-start ones, `code_copied` is `no` at step
+5 and `yes` at step 11, both target buttons produce their pair.
+
+The offer properties are the new part, and they are on the events
+themselves: `item_id`, `item_name`, `item_brand`, `coupon`, `index`, next to
+`item_list_id` / `item_list_name`. The `index` of a card that stands in both
+lists differs per list in the same run — `offer_01` is 0 in Highlights and 4
+in Neustarter, `offer_03` is 2 and 5.
+
+## Checking the server side
+
+All 52 events were read back with the Amplitude MCP
+(`get_amp_user_data`, `include: "timeline"`, the `deviceId` from the queue,
+`includeEventProperties: true`) and matched the queue property by property.
+
+The three reports the flat schema was made for, all on the 2026-09-10 data:
+
+- **Funnel `view_item_list → select_item → view_item → begin_checkout` with
+  `item_id` held constant.** With the first step filtered to `offer_03` it
+  converts 1 → 1 → 1 → 1, and the step times match the queue exactly (155 s
+  from the impression to the choice, 0 s to `view_item`, 23 s to
+  `begin_checkout`). With the first step filtered to `offer_02` — a card that
+  was only ever shown — the funnel stops after step 1. That is the proof the
+  property really is held: without it, `offer_02` would inherit `offer_01`'s
+  later steps.
+- **Segmentation by `item_id` and by `item_list_id`.** Real values, no
+  `(none)`: `view_item_list` 4 for `offer_01`, 4 for `offer_03`, 2 for each
+  of the other six — twenty events for two start-screen views. By
+  `item_list_id`, `view_item_list` splits 12 Neustarter / 8 Highlights, and
+  the other three events sit in `home_highlights`, which is where both
+  offers were chosen. The 2026-09-09 events show up as `(none)` in the same
+  chart: they carry the array, and the array has no readable `item_id`.
+- **Data table `item_id` × (impressions, selects, `view_item`, checkouts).**
+  `offer_01` 4 / 1 / 2 / 1, `offer_03` 4 / 1 / 1 / 2, the other six 2 / – /
+  – / –. This is the table the schema was flattened for.
+
+**One trap in the MCP, not in the data.** In the typed `chart` model of
+`query_amplitude_data` the field that actually holds a property constant is
+`constant_properties`. The field named `hold_property` was accepted, echoed
+back as a breakdown column and silently ignored: with it, `offer_02` also
+showed a full conversion, borrowing `offer_01`'s steps. Anything checked
+through `hold_property` alone is worthless — use `constant_properties` and
+verify with a value that must not convert.
 
 ---
 

@@ -3,7 +3,7 @@
 Where the work stands. Check this file before every commit: the change
 belongs on the branch this map names for it.
 
-State: 2026-09-06.
+State: 2026-09-11.
 
 ## Branch names
 
@@ -14,7 +14,7 @@ Format `<version>/<variant>`, lower case, slash as separator.
 | `v1/no-tracking` | app v1 without an SDK — the common base |
 | `v1/amplitude` | v1, Amplitude goes in here |
 | `main` | v1 with Firebase / GA4; there is no `v1/firebase` branch |
-| `v2/amplitude` | app v2 + Amplitude — branched from `v1/amplitude`, same Amplitude project. Concept updated, app code next |
+| `v2/amplitude` | app v2 + Amplitude — branched from `v1/amplitude`, same Amplitude project. Finished: app, tracking and concept |
 | `v2/firebase` | v2 + Firebase / GA4 (later) |
 
 App v2 (bottom navigation, eight offers in four categories, two lists on
@@ -36,7 +36,7 @@ shared history of v1
    │   │
    │   └─► v1/amplitude
    │       │
-   │       └─► v2/amplitude           ← app v2 + concept, code next
+   │       └─► v2/amplitude           tag shared/v2-amplitude-2026-09-11
    │
    └─►                               tag v1/firebase
      │
@@ -51,6 +51,7 @@ shared history of v1
 | `v1/base` | `263d8b3` | app v1 without tracking — the starting point of every branch |
 | `v1/firebase` | `5930871` | app v1 with Firebase / GA4, first finished version |
 | `shared/v1-firebase-2026-09-02` | `9fc161e` | state handed over on 2026-09-02 (= tip of `main`) |
+| `shared/v2-amplitude-2026-09-11` | — | app v2 with Amplitude, finished on 2026-09-11 (= tip of `v2/amplitude`) |
 
 ## Rules
 
