@@ -3,10 +3,13 @@
 A small native Android app used as a test ground for mobile analytics
 tracking.
 
-It copies the shape of a real coupon service: a start screen with four
-offers, and an offer screen where the user can reveal a coupon code, copy
-it, download a printable coupon, or click out to the shop. That is enough
-to fire the events that matter for tracking, and nothing more.
+It copies the shape of a real coupon service: a start screen with two
+offer lists, Highlights and Neustarter, eight offers in total, and an
+offer screen where the user can reveal a coupon code, copy it, download a
+printable coupon, or click out to the shop. A bottom navigation and five
+test screens add paths into the offers that do not go through a list.
+That is enough to fire the events that matter for tracking, and nothing
+more.
 
 The app is not a product. It is not published on Google Play, but it is
 built as a normal, installable app.
@@ -67,6 +70,7 @@ Sonnet 5 and Opus 5, on tasks set by the repository owner.
 
 ## Status
 
-The app is finished for its first version and checked by hand on a phone
-and on emulators. The Amplitude SDK is installed and sends the automatic
-app lifecycle events; the events of the app itself come next.
+App v2 and its Amplitude tracking are finished. The SDK setup, the screen
+events, the e-commerce chain and the four button events are built and
+checked on emulators, in logcat and in Amplitude. Open questions are
+collected in the tracking concept, Attachment 2.
